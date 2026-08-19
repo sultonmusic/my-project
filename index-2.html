@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="ru" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Зарплата - Расчетный листок и AI Ассистент</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#090d16',
+                        darkcard: '#111827',
+                        darkborder: '#1f2937',
+                        brand: '#2563eb',
+                        avans: '#f97316',
+                        emeraldNeon: '#10b981'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+
+        /* HD A4 PDF Shablon dizayni */
+        #pdfReportTemplate {
+            width: 794px;
+            min-height: 1120px;
+            background-color: #ffffff;
+            color: #0f172a;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        #pdfReportTemplate table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #pdfReportTemplate th, #pdfReportTemplate td {
+            border: 1px solid #cbd5e1;
+            padding: 6px 9px;
+            text-align: left;
+            font-size: 11px;
+        }
+        #pdfReportTemplate th {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-darkbg dark:text-slate-100 pb-24 transition-colors duration-300">
+
+    <!-- Header (Шапка) -->
+    <header class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-30 max-w-md mx-auto transition-colors duration-300">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-xl text-white shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-calculator font-bold"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        Моя Зарплата
+                    </h1>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Учет смен, питания (-50%) и AI</p>
+                </div>
+            </div>
+            
+            <div class="relative">
+                <button onclick="toggleMainMenu()" aria-label="Меню" class="w-10 h-10 bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl flex items-center justify-center border border-slate-300 dark:border-slate-700 transition active:scale-95">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div id="mainMenuDropdown" class="hidden absolute right-0 top-12 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl p-2 z-50">
+                    <button onclick="menuAction('settings')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-blue-50 dark:hover:bg-blue-950/40"><i class="fa-solid fa-sliders w-5 text-blue-500"></i><span class="text-sm font-semibold">Параметры и Валюта</span></button>
+                    <button onclick="menuAction('pdf')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-file-pdf w-5 text-emerald-500"></i><span class="text-sm font-semibold">Скачать PDF</span></button>
+                    <button onclick="menuAction('theme')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-circle-half-stroke w-5 text-amber-500"></i><span class="text-sm font-semibold">Сменить тему</span></button>
+                    <button onclick="menuAction('ai')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-robot w-5 text-indigo-500"></i><span class="text-sm font-semibold">AI Ассистент</span></button>
+                    <button onclick="menuAction('reset')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/30"><i class="fa-solid fa-rotate-right w-5 text-rose-500"></i><span class="text-sm font-semibold">Сбросить данные</span></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+
+        <!-- Быстрая кнопка экспорта PDF -->
+        <button onclick="generatePdfReport()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2 text-xs transition active:scale-98">
+            <i class="fa-solid fa-file-invoice-dollar text-base"></i>
+            <span>Скачать расчетную ведомость с печатью (PDF)</span>
+        </button>
+
+        <!-- 1. Настройки -->
+        <section id="settingsPanel" class="hidden fixed inset-0 z-[70] bg-slate-100 dark:bg-darkbg overflow-y-auto p-4 pb-24">
+            <div class="max-w-md mx-auto bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xl space-y-3">
+            <div class="flex items-center justify-between text-blue-600 dark:text-blue-400 font-semibold text-sm">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-base"></i>
+                    <span>Параметры и Валюта</span>
+                </div>
+                <button onclick="closeSettingsPanel()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="p-2.5 bg-slate-50 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <label class="text-xs text-slate-600 dark:text-slate-400 font-medium">Валюта расчетов:</label>
+                <div class="flex items-center space-x-2">
+                    <select id="currencySelect" onchange="handleCurrencySelect(this.value)" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="₽">₽ (Российский рубль)</option>
+                        <option value="сум">сум (Узбекский сум)</option>
+                        <option value="₸">₸ (Казахстанский тенге)</option>
+                        <option value="c">c (Сом / Сомони)</option>
+                        <option value="$">$ (Доллар США)</option>
+                        <option value="custom">Свой символ...</option>
+                    </select>
+                    <input type="text" id="customCurrencyInput" onchange="updateSettings()" placeholder="Символ" class="hidden w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-slate-500 dark:text-slate-400 font-medium block mb-1">Почасовая ставка</label>
+                    <div class="relative flex items-center">
+                        <span class="currencySymbolSpan absolute left-3 text-slate-400 font-bold text-sm">₽</span>
+                        <input type="number" id="hourlyRateInput" value="300" onchange="updateSettings()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 pl-10 pr-3 font-semibold text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500 dark:text-slate-400 font-medium block mb-1">Такси (за 1 смену)</label>
+                    <div class="relative flex items-center">
+                        <span class="currencySymbolSpan absolute left-3 text-slate-400 font-bold text-sm">₽</span>
+                        <input type="number" id="taxiRateInput" value="150" onchange="updateSettings()" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 pl-10 pr-3 font-semibold text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div class="flex items-center space-x-2 text-slate-600 dark:text-slate-400 font-semibold text-xs mb-2">
+                    <i class="fa-regular fa-calendar-days text-blue-500"></i>
+                    <span>График выплат (числа месяца)</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-2 rounded-xl">
+                        <span class="text-[10px] text-amber-700 dark:text-amber-400 font-semibold block">Раздел (до)</span>
+                        <input type="number" id="splitDayInput" value="15" min="1" max="28" onchange="updateSettings()" class="w-full text-center font-bold text-amber-700 dark:text-amber-400 bg-transparent text-sm focus:outline-none">
+                        <span class="text-[9px] text-slate-400 dark:text-slate-500">Аванс / ЗП</span>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-2 rounded-xl">
+                        <span class="text-[10px] text-amber-700 dark:text-amber-400 font-semibold block">День аванса</span>
+                        <input type="number" id="advancePayDayInput" value="25" min="1" max="31" onchange="updateSettings()" class="w-full text-center font-bold text-amber-700 dark:text-amber-400 bg-transparent text-sm focus:outline-none">
+                        <span class="text-[9px] text-slate-400 dark:text-slate-500">числа</span>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 p-2 rounded-xl">
+                        <span class="text-[10px] text-blue-700 dark:text-blue-400 font-semibold block">День ЗП</span>
+                        <input type="number" id="salaryPayDayInput" value="10" min="1" max="31" onchange="updateSettings()" class="w-full text-center font-bold text-blue-700 dark:text-blue-400 bg-transparent text-sm focus:outline-none">
+                        <span class="text-[9px] text-slate-400 dark:text-slate-500">след. месяца</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- 2. Календарь -->
+        <section class="bg-white dark:bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm dark:shadow-xl transition-colors">
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 transition active:scale-95 border border-slate-200 dark:border-slate-700/50">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <h2 id="currentMonthYearLabel" class="font-bold text-slate-900 dark:text-slate-100 text-base tracking-wide">Август 2026</h2>
+                <button onclick="changeMonth(1)" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 transition active:scale-95 border border-slate-200 dark:border-slate-700/50">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-7 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2">
+                <div>Пн</div>
+                <div>Вт</div>
+                <div>Ср</div>
+                <div>Чт</div>
+                <div>Пт</div>
+                <div>Сб</div>
+                <div>Вс</div>
+            </div>
+
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 text-center">
+                <!-- JS -->
+            </div>
+
+            <div class="flex items-center justify-center space-x-4 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <div class="flex items-center space-x-1.5">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                    <span>1-15 (Аванс)</span>
+                </div>
+                <div class="flex items-center space-x-1.5">
+                    <span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>
+                    <span>16-31 (ЗП)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Питание персонала (-50%) -->
+        <section class="bg-rose-50/60 dark:bg-rose-950/20 backdrop-blur-md rounded-2xl p-4 border border-rose-100 dark:border-rose-900/30 shadow-sm dark:shadow-xl space-y-3 transition-colors">
+            <div class="flex items-center space-x-2 text-rose-600 dark:text-rose-400 font-semibold text-sm">
+                <i class="fa-solid fa-utensils"></i>
+                <span>Покупки и питание персонала (-50%)</span>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900/90 p-3 rounded-xl border border-rose-100 dark:border-rose-900/20 space-y-2">
+                <div>
+                    <label class="text-[11px] text-slate-400 font-medium">Дата</label>
+                    <input type="date" id="foodDateInput" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                </div>
+                <div>
+                    <label class="text-[11px] text-slate-400 font-medium">Наименование покупки</label>
+                    <input type="text" id="foodNameInput" placeholder="Например: С Ранчо Дона, Обед..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Количество (шт)</label>
+                        <input type="number" id="foodCountInput" value="1" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Полная цена (<span class="currencySymbolSpan">₽</span>)</label>
+                        <input type="number" id="foodPriceInput" placeholder="Цена за 1 шт" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                    </div>
+                </div>
+                <button onclick="addFoodExpense()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl text-xs transition active:scale-98 shadow-md flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Добавить расход</span>
+                </button>
+            </div>
+
+            <!-- СПИСОК ПОКУПОК C ВОЗМОЖНОСТЬЮ РЕДАКТИРОВАНИЯ -->
+            <div id="foodList" class="space-y-2 max-h-60 overflow-y-auto hide-scrollbar">
+                <!-- JS -->
+            </div>
+        </section>
+
+        <!-- 4. Премии и Льготы -->
+        <section class="bg-emerald-50/60 dark:bg-emerald-950/20 backdrop-blur-md rounded-2xl p-4 border border-emerald-100 dark:border-emerald-900/30 shadow-sm dark:shadow-xl space-y-3 transition-colors">
+            <div class="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
+                <i class="fa-solid fa-award"></i>
+                <span>Премии и льготы</span>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900/90 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/20 space-y-2">
+                <div>
+                    <label class="text-[11px] text-slate-400 font-medium">Причина / Наименование</label>
+                    <input type="text" id="bonusNameInput" placeholder="Например: Премия за смену..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Сумма (<span class="currencySymbolSpan">₽</span>)</label>
+                        <input type="number" id="bonusAmountInput" placeholder="Сумма" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Период выплаты</label>
+                        <select id="bonusPeriodInput" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <option value="1">К авансу (1-15)</option>
+                            <option value="2">К зарплате (16-31)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="addBonus()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-xl text-xs transition active:scale-98 shadow-md flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Добавить премию</span>
+                </button>
+            </div>
+
+            <div id="bonusList" class="space-y-1.5 max-h-40 overflow-y-auto hide-scrollbar">
+                <!-- JS -->
+            </div>
+        </section>
+
+        <!-- 5. Сводка за месяц -->
+        <section class="bg-slate-900 text-white rounded-2xl p-4 shadow-xl space-y-4">
+            <div class="flex items-center space-x-2 text-emerald-400 font-semibold text-sm">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Сводный расчет за месяц</span>
+            </div>
+
+            <!-- Чистая ЗП -->
+            <div class="bg-slate-800/90 p-4 rounded-xl border border-slate-700/60 glow-emerald">
+                <span class="text-xs text-slate-400 font-medium block">Чистая ЗП (На руки)</span>
+                <div id="totalNetSalary" class="text-3xl font-black text-emerald-400 my-1 tracking-tight">0 ₽</div>
+                <div class="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-700/60 mt-2">
+                    <span>Заработано: <strong id="totalGrossSalary" class="text-slate-200">0 ₽</strong></span>
+                    <span>Удержано: <strong id="totalDeductions" class="text-rose-400">-0 ₽</strong></span>
+                </div>
+            </div>
+
+            <div class="space-y-2.5">
+                <div class="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span id="advanceDateLabel" class="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-md border border-amber-500/30">25.08.2026</span>
+                            <span class="text-xs font-semibold text-amber-200">Аванс (1-15 число)</span>
+                        </div>
+                        <div id="advanceNetPay" class="text-xl font-extrabold text-amber-400">0 ₽</div>
+                    </div>
+                    <div class="text-right text-[11px] space-y-0.5 text-slate-400">
+                        <div>Отработано: <span id="advanceHours" class="text-slate-200 font-semibold">0 ч</span></div>
+                        <div>Такси: <span id="advanceTaxi" class="text-emerald-400 font-semibold">+0</span></div>
+                        <div>Удержание: <span id="advanceFoodDeduction" class="text-rose-400 font-semibold">-0</span></div>
+                        <div>Премия: <span id="advanceBonuses" class="text-emerald-400 font-semibold">+0</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/30 border border-blue-500/30 rounded-xl p-3 flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span id="salaryDateLabel" class="text-[10px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-md border border-blue-500/30">10.09.2026</span>
+                            <span class="text-xs font-semibold text-blue-200">Зарплата (16-31 число)</span>
+                        </div>
+                        <div id="salaryNetPay" class="text-xl font-extrabold text-blue-400">0 ₽</div>
+                    </div>
+                    <div class="text-right text-[11px] space-y-0.5 text-slate-400">
+                        <div>Отработано: <span id="salaryHours" class="text-slate-200 font-semibold">0 ч</span></div>
+                        <div>Такси: <span id="salaryTaxi" class="text-emerald-400 font-semibold">+0</span></div>
+                        <div>Удержание: <span id="salaryFoodDeduction" class="text-rose-400 font-semibold">-0</span></div>
+                        <div>Премия: <span id="salaryBonuses" class="text-emerald-400 font-semibold">+0</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ULTRA-HD SHABLON DLYA PDF EXPORTA (PECHAT MARKAZGA VA YANA 2 SM PASTROQQA KO'CHIRILDI) -->
+    <div class="hidden">
+        <div id="pdfReportTemplate" class="p-8 relative">
+            <!-- Заголовок отчета -->
+            <div class="border-b-2 border-slate-900 pb-3 mb-5 flex justify-between items-start">
+                <div>
+                    <h1 class="text-lg font-black uppercase tracking-wider text-slate-900">РАСЧЕТНАЯ ВЕДОМОСТЬ ПО ЗАРАБОТНОЙ ПЛАТЕ</h1>
+                    <p class="text-xs text-slate-600 mt-1">Отчетный период: <strong id="pdfReportMonthTitle" class="text-slate-900">Август 2026</strong></p>
+                    <p class="text-[10px] text-slate-400">Сформировано автоматически в системе «Моя Зарплата»</p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block bg-slate-100 border border-slate-300 px-3 py-1 rounded text-xs font-bold text-slate-800" id="pdfReportCurrencyTag">Валюта: ₽</span>
+                </div>
+            </div>
+
+            <!-- Таблица 1: Смены -->
+            <div class="mb-5">
+                <h2 class="text-xs font-bold uppercase text-slate-800 mb-1.5 tracking-wide">1. ДЕТАЛИЗАЦИЯ РАБОЧИХ СМЕН И ПРОЕЗДА (ТАКСИ)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="w-1/6">Дата</th>
+                            <th class="w-1/6">Отработано</th>
+                            <th class="w-1/6">Ставка</th>
+                            <th class="w-1/6">Заработок</th>
+                            <th class="w-1/6">Такси</th>
+                            <th class="w-1/6">Итого за день</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfShiftsTableBody">
+                        <!-- JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Таблица 2: Питание -50% -->
+            <div class="mb-5">
+                <h2 class="text-xs font-bold uppercase text-slate-800 mb-1.5 tracking-wide">2. ПОКУПКИ И ПИТАНИЕ ПЕРСОНАЛА (СКИДКА 50%)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="w-1/5">Дата</th>
+                            <th class="w-2/5">Наименование</th>
+                            <th class="w-1/5">Полная цена</th>
+                            <th class="w-1/10">Скидка(50%)</th>
+                            <th class="w-1/5">К удержанию</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfFoodTableBody">
+                        <!-- JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Таблица 3: Премии -->
+            <div class="mb-5">
+                <h2 class="text-xs font-bold uppercase text-slate-800 mb-1.5 tracking-wide">3. ПРЕМИИ, НАДБАВКИ И ЛЬГОТЫ</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="w-1/4">Период</th>
+                            <th class="w-2/4">Причина / Наименование</th>
+                            <th class="w-1/4">Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfBonusesTableBody">
+                        <!-- JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Итоговый блок с синей печатью (РАСПОЛОЖЕНА ПО ЦЕНТРУ И НИЖЕ НА ~4 СМ ОТ РАМКИ) -->
+            <div class="border-2 border-slate-900 p-4 rounded-xl bg-white mt-6 mb-44 relative overflow-visible">
+                <h2 class="text-xs font-black uppercase text-slate-900 border-b border-slate-200 pb-2 mb-3 tracking-wider">ИТОГОВЫЙ РАСЧЕТНЫЙ ЛИСТОК</h2>
+                <div class="grid grid-cols-2 gap-x-8 text-xs mb-3">
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Начислено за смены:</span>
+                            <strong id="pdfSummaryWorkEarned" class="text-slate-900">0 ₽</strong>
+                        </div>
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Компенсация такси:</span>
+                            <strong id="pdfSummaryTaxi" class="text-slate-900">0 ₽</strong>
+                        </div>
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Премии и бонусы:</span>
+                            <strong id="pdfSummaryBonuses" class="text-slate-900">0 ₽</strong>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Удержания за питание (-50%):</span>
+                            <strong id="pdfSummaryDeductions" class="text-rose-600">-0 ₽</strong>
+                        </div>
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Аванс к выплате (1-15):</span>
+                            <strong id="pdfSummaryAdvNet" class="text-slate-900">0 ₽</strong>
+                        </div>
+                        <div class="flex justify-between py-0.5 border-b border-slate-100">
+                            <span class="text-slate-600">Зарплата к выплате (16-31):</span>
+                            <strong id="pdfSummarySalNet" class="text-slate-900">0 ₽</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-3 border-t-2 border-slate-900 text-sm font-black mt-2">
+                    <span class="tracking-wider">ВСЕГО К ВЫПЛАТЕ НА РУКИ:</span>
+                    <span id="pdfSummaryTotalNet" class="text-lg text-slate-950">0 ₽</span>
+                </div>
+
+                <!-- ПЕЧАТЬ ПО ЦЕНТРУ И ЕЩЕ НА 2 СМ НИЖЕ (ИТОГО -160px ОТ НИЖНЕГО КРАЯ) -->
+                <div class="absolute -bottom-40 left-1/2 pointer-events-none z-20" style="transform: translateX(-50%) rotate(-4deg); opacity: 0.96;">
+                    <img id="pdfSealImg" 
+                         src="https://allwebs.ru/images/2026/08/17/8ce5c8495d6a80a5af95d89ce8aeddb2.png" 
+                         crossorigin="anonymous"
+                         alt="Печать" 
+                         class="w-44 h-44 object-contain drop-shadow-sm" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI FLOATING BUTTON -->
+    <button onclick="toggleAiModal()" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-indigo-600 to-blue-500 rounded-full shadow-2xl shadow-blue-500/50 flex items-center justify-center text-white text-2xl z-40 active:scale-90 transition transform hover:scale-105 border border-blue-400/40">
+        <i class="fa-solid fa-robot animate-bounce"></i>
+        <span class="absolute -top-1 -right-1 flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        </span>
+    </button>
+
+    <!-- AI ASSISTANT FULL SCREEN DRAWER -->
+    <div id="aiModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4 transition-all">
+        <div class="bg-white dark:bg-slate-900 w-full h-full sm:max-w-md sm:h-[680px] sm:rounded-3xl border-none sm:border border-slate-200 dark:border-slate-800 flex flex-col shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
+            
+            <div class="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-robot text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                            AI Финансовый Ассистент
+                            <span class="text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-mono">FULL SCREEN</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Авто-учет расходов и смен</p>
+                    </div>
+                </div>
+                <button onclick="toggleAiModal()" class="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Chat History -->
+            <div id="aiChatHistory" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs hide-scrollbar">
+                <!-- Javascript -->
+            </div>
+
+            <!-- Image preview -->
+            <div id="aiImagePreviewContainer" class="hidden px-3 pt-2 pb-1 bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <img id="aiImagePreviewImg" src="" class="w-10 h-10 object-cover rounded-lg border border-slate-300 dark:border-slate-700">
+                    <div>
+                        <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 block">Изображение графика</span>
+                        <span class="text-[9px] text-slate-400">Готово к отправке (Vision OCR)</span>
+                    </div>
+                </div>
+                <button onclick="removePendingAiImage()" class="text-rose-500 hover:text-rose-600 p-1">
+                    <i class="fa-solid fa-circle-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Dinamic Chips -->
+            <div class="px-3 py-2 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800/80 flex space-x-2 overflow-x-auto hide-scrollbar text-[11px]">
+                <button onclick="triggerCameraSelect()" class="bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-1.5 rounded-xl whitespace-nowrap transition active:scale-95 flex items-center space-x-1">
+                    <i class="fa-solid fa-camera"></i>
+                    <span>📷 Загрузить график</span>
+                </button>
+                <button onclick="askAiQuick('1,2,5,7,8,11,15,16,17 по 12 часов')" class="bg-blue-50 dark:bg-indigo-950/40 hover:bg-blue-100 text-blue-700 dark:text-indigo-300 border border-blue-200 dark:border-indigo-500/30 px-2.5 py-1.5 rounded-xl whitespace-nowrap transition active:scale-95">
+                    ⚡ Поставить смены по 12ч
+                </button>
+                <button onclick="askAiQuick('Когда и сколько я получу зарплату?')" class="bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 px-2.5 py-1.5 rounded-xl whitespace-nowrap transition active:scale-95">
+                    💰 Расчет зарплаты
+                </button>
+            </div>
+
+            <!-- Input bar -->
+            <div class="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center space-x-2 pb-6 sm:pb-3">
+                <label for="aiImageInput" class="w-10 h-10 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl flex items-center justify-center cursor-pointer transition active:scale-95 shrink-0" title="Прикрепить фото">
+                    <i class="fa-solid fa-camera text-sm"></i>
+                    <input type="file" id="aiImageInput" accept="image/*" class="hidden" onchange="handleAiImageSelect(event)">
+                </label>
+
+                <input type="text" id="aiInput" onkeypress="handleAiKeyPress(event)" placeholder="Задайте вопрос или введите покупку..." class="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                
+                <button onclick="sendAiMessage()" class="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center transition active:scale-95 shrink-0 shadow-md shadow-indigo-600/30">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT FOOD ITEM -->
+    <div id="foodEditModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="text-base font-extrabold text-rose-600 dark:text-rose-400">Редактировать расход</h3>
+                <button onclick="closeFoodEditModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <input type="hidden" id="editFoodId">
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[11px] text-slate-400 font-medium">Дата</label>
+                    <input type="date" id="editFoodDateInput" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                </div>
+                <div>
+                    <label class="text-[11px] text-slate-400 font-medium">Наименование покупки</label>
+                    <input type="text" id="editFoodNameInput" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Количество (шт)</label>
+                        <input type="number" id="editFoodCountInput" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-medium">Полная цена за 1 шт (<span class="currencySymbolSpan">₽</span>)</label>
+                        <input type="number" id="editFoodPriceInput" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closeFoodEditModal()" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
+                    Отмена
+                </button>
+                <button onclick="saveEditedFoodItem()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-2xl text-xs transition active:scale-95 shadow-md shadow-rose-500/20">
+                    Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DAY SHIFT -->
+    <div id="dayModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 id="modalDateTitle" class="text-lg font-extrabold text-blue-600 dark:text-blue-400">06.08.2026</h3>
+                <button onclick="closeDayModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="text-center space-y-2 py-2">
+                <label class="text-xs text-slate-500 dark:text-slate-400 font-medium block">Сколько часов отработали?</label>
+                <div class="flex items-center justify-center space-x-4">
+                    <button onclick="adjustHours(-1)" class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xl active:scale-95 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <input type="number" id="modalHoursInput" value="12" class="w-24 text-center font-black text-3xl text-slate-900 dark:text-white border-b-2 border-blue-500 focus:outline-none bg-transparent">
+                    <button onclick="adjustHours(1)" class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xl active:scale-95 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+
+                <div class="flex justify-center space-x-2 pt-2">
+                    <button onclick="setHours(8)" class="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 transition border border-slate-200 dark:border-slate-700">8ч</button>
+                    <button onclick="setHours(10)" class="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 transition border border-slate-200 dark:border-slate-700">10ч</button>
+                    <button onclick="setHours(12)" class="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 transition border border-slate-200 dark:border-slate-700">12ч</button>
+                    <button onclick="setHours(24)" class="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 transition border border-slate-200 dark:border-slate-700">24ч</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-taxi text-amber-500 font-bold text-base"></i>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Добавить такси за смену?</div>
+                        <div class="text-[10px] text-slate-400" id="modalTaxiRateHint">+150 ₽</div>
+                    </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="modalTaxiCheckbox" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="deleteShiftData()" class="w-full bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/40 text-rose-600 dark:text-rose-400 font-semibold py-3 rounded-2xl text-xs transition active:scale-95 flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Удалить</span>
+                </button>
+                <button onclick="saveShiftData()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl text-xs transition active:scale-95 flex items-center justify-center space-x-1.5 shadow-lg shadow-blue-600/30">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Сохранить</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const monthNames = [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+        ];
+
+        let currentDate = new Date();
+        let activeSelectedDay = null;
+
+        let appData = {
+            settings: {
+                currency: "₽",
+                hourlyRate: 300,
+                taxiRate: 150,
+                splitDay: 15,
+                advancePayDay: 25,
+                salaryPayDay: 10,
+                theme: "light"
+            },
+            shifts: {},
+            foodExpenses: [],
+            bonuses: [],
+            chatHistory: []
+        };
+
+        let calculatedTotals = {};
+        let pendingAiImage = null;
+
+        window.onload = function() {
+            loadFromLocalStorage();
+            cleanOldChatHistory();
+            applyTheme();
+            syncSettingsToUI();
+            
+            const todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('foodDateInput').value = todayStr;
+
+            renderApp();
+            renderChatHistoryUI();
+        };
+
+        function toggleMainMenu() { document.getElementById('mainMenuDropdown').classList.toggle('hidden'); }
+        function closeMainMenu() { document.getElementById('mainMenuDropdown').classList.add('hidden'); }
+        function openSettingsPanel() { closeMainMenu(); document.getElementById('settingsPanel').classList.remove('hidden'); document.body.style.overflow='hidden'; }
+        function closeSettingsPanel() { document.getElementById('settingsPanel').classList.add('hidden'); document.body.style.overflow=''; }
+        function menuAction(action) {
+            closeMainMenu();
+            if (action === 'settings') openSettingsPanel();
+            else if (action === 'pdf') generatePdfReport();
+            else if (action === 'theme') toggleTheme();
+            else if (action === 'ai') toggleAiModal();
+            else if (action === 'reset') resetData();
+        }
+
+        function toggleTheme() {
+            appData.settings.theme = (appData.settings.theme === "dark") ? "light" : "dark";
+            applyTheme();
+            saveToLocalStorage();
+        }
+
+        function applyTheme() {
+            const html = document.documentElement;
+            if (appData.settings.theme === "dark") {
+                html.classList.add("dark");
+                html.classList.remove("light");
+            } else {
+                html.classList.remove("dark");
+                html.classList.add("light");
+            }
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('mening_oyligim_data_v7');
+            if (saved) {
+                try {
+                    appData = JSON.parse(saved);
+                    if (!appData.settings.currency) appData.settings.currency = "₽";
+                    if (!appData.settings.theme) appData.settings.theme = "light";
+                    if (!appData.chatHistory) appData.chatHistory = [];
+                } catch(e) {
+                    console.error("Error loading data", e);
+                }
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('mening_oyligim_data_v7', JSON.stringify(appData));
+            renderApp();
+        }
+
+        function cleanOldChatHistory() {
+            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            if (appData.chatHistory && appData.chatHistory.length > 0) {
+                appData.chatHistory = appData.chatHistory.filter(msg => {
+                    return (now - (msg.timestamp || 0)) < thirtyDaysMs;
+                });
+            }
+        }
+
+        function syncSettingsToUI() {
+            document.getElementById('hourlyRateInput').value = appData.settings.hourlyRate;
+            document.getElementById('taxiRateInput').value = appData.settings.taxiRate;
+            document.getElementById('splitDayInput').value = appData.settings.splitDay;
+            document.getElementById('advancePayDayInput').value = appData.settings.advancePayDay;
+            document.getElementById('salaryPayDayInput').value = appData.settings.salaryPayDay;
+
+            const currSelect = document.getElementById('currencySelect');
+            const customInput = document.getElementById('customCurrencyInput');
+            const standardCurrencies = ["₽", "сум", "₸", "c", "$"];
+
+            if (standardCurrencies.includes(appData.settings.currency)) {
+                currSelect.value = appData.settings.currency;
+                customInput.classList.add('hidden');
+            } else {
+                currSelect.value = "custom";
+                customInput.value = appData.settings.currency;
+                customInput.classList.remove('hidden');
+            }
+
+            updateCurrencySpans();
+        }
+
+        function handleCurrencySelect(val) {
+            const customInput = document.getElementById('customCurrencyInput');
+            if (val === "custom") {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+                if (!customInput.value) customInput.value = "₽";
+                appData.settings.currency = customInput.value;
+            } else {
+                customInput.classList.add('hidden');
+                appData.settings.currency = val;
+            }
+            updateSettings();
+        }
+
+        function updateCurrencySpans() {
+            const curr = appData.settings.currency || "₽";
+            document.querySelectorAll('.currencySymbolSpan').forEach(span => {
+                span.innerText = curr;
+            });
+        }
+
+        function updateSettings() {
+            const currSelect = document.getElementById('currencySelect');
+            if (currSelect.value === "custom") {
+                const customVal = document.getElementById('customCurrencyInput').value.trim();
+                appData.settings.currency = customVal || "₽";
+            } else {
+                appData.settings.currency = currSelect.value;
+            }
+
+            appData.settings.hourlyRate = parseFloat(document.getElementById('hourlyRateInput').value) || 0;
+            appData.settings.taxiRate = parseFloat(document.getElementById('taxiRateInput').value) || 0;
+            appData.settings.splitDay = parseInt(document.getElementById('splitDayInput').value) || 15;
+            appData.settings.advancePayDay = parseInt(document.getElementById('advancePayDayInput').value) || 25;
+            appData.settings.salaryPayDay = parseInt(document.getElementById('salaryPayDayInput').value) || 10;
+            
+            updateCurrencySpans();
+            saveToLocalStorage();
+        }
+
+        function renderApp() {
+            renderCalendar();
+            renderFoodList();
+            renderBonusList();
+            calculateAndRenderTotals();
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            document.getElementById('currentMonthYearLabel').innerText = `${monthNames[month]} ${year}`;
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            let startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+
+            const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < startOffset; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = "h-12 border border-transparent";
+                grid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= totalDaysInMonth; day++) {
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const shift = appData.shifts[dateKey];
+                const isAvansPeriod = day <= appData.settings.splitDay;
+
+                const dayCell = document.createElement('div');
+                dayCell.onclick = () => openDayModal(dateKey, day);
+
+                let cellStyle = "h-12 rounded-xl flex flex-col items-center justify-between p-1 cursor-pointer transition active:scale-95 border ";
+                
+                if (shift && shift.hours > 0) {
+                    if (isAvansPeriod) {
+                        cellStyle += "bg-amber-500 text-white border-amber-600 shadow-sm";
+                    } else {
+                        cellStyle += "bg-blue-600 text-white border-blue-700 shadow-sm";
+                    }
+                } else {
+                    cellStyle += "bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300";
+                }
+
+                dayCell.className = cellStyle;
+
+                let innerHTML = `
+                    <div class="w-full flex justify-between items-center px-0.5">
+                        <span class="text-[10px] font-semibold opacity-80">${day}</span>
+                        ${shift && shift.hasTaxi ? '<i class="fa-solid fa-taxi text-[8px] text-amber-300"></i>' : ''}
+                    </div>
+                    <div class="font-extrabold text-sm mb-0.5">
+                        ${shift && shift.hours > 0 ? shift.hours : '-'}
+                    </div>
+                `;
+
+                dayCell.innerHTML = innerHTML;
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderApp();
+        }
+
+        function openDayModal(dateKey, dayNumber) {
+            activeSelectedDay = dateKey;
+            const shift = appData.shifts[dateKey] || { hours: 12, hasTaxi: true };
+
+            const dateObj = new Date(dateKey);
+            const formattedDate = `${String(dayNumber).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
+
+            document.getElementById('modalDateTitle').innerText = formattedDate;
+            document.getElementById('modalHoursInput').value = shift.hours || 12;
+            document.getElementById('modalTaxiCheckbox').checked = shift.hasTaxi !== undefined ? shift.hasTaxi : true;
+            document.getElementById('modalTaxiRateHint').innerText = `+${formatMoney(appData.settings.taxiRate)}`;
+
+            document.getElementById('dayModal').classList.remove('hidden');
+        }
+
+        function closeDayModal() {
+            document.getElementById('dayModal').classList.add('hidden');
+            activeSelectedDay = null;
+        }
+
+        function adjustHours(delta) {
+            const input = document.getElementById('modalHoursInput');
+            let val = parseInt(input.value) || 0;
+            val = Math.max(0, val + delta);
+            input.value = val;
+        }
+
+        function setHours(hrs) {
+            document.getElementById('modalHoursInput').value = hrs;
+        }
+
+        function saveShiftData() {
+            if (!activeSelectedDay) return;
+
+            const hrs = parseFloat(document.getElementById('modalHoursInput').value) || 0;
+            const hasTaxi = document.getElementById('modalTaxiCheckbox').checked;
+
+            if (hrs > 0) {
+                appData.shifts[activeSelectedDay] = {
+                    hours: hrs,
+                    hasTaxi: hasTaxi
+                };
+            } else {
+                delete appData.shifts[activeSelectedDay];
+            }
+
+            saveToLocalStorage();
+            closeDayModal();
+        }
+
+        function deleteShiftData() {
+            if (!activeSelectedDay) return;
+            delete appData.shifts[activeSelectedDay];
+            saveToLocalStorage();
+            closeDayModal();
+        }
+
+        // FOOD EXPENSES
+        function addFoodExpense() {
+            const date = document.getElementById('foodDateInput').value;
+            const name = document.getElementById('foodNameInput').value.trim() || "Питание";
+            const count = parseInt(document.getElementById('foodCountInput').value) || 1;
+            const price = parseFloat(document.getElementById('foodPriceInput').value) || 0;
+
+            if (price <= 0) {
+                alert("Укажите цену!");
+                return;
+            }
+
+            const item = {
+                id: Date.now(),
+                date: date,
+                name: name,
+                count: count,
+                price: price
+            };
+
+            appData.foodExpenses.push(item);
+            document.getElementById('foodNameInput').value = '';
+            document.getElementById('foodPriceInput').value = '';
+
+            saveToLocalStorage();
+        }
+
+        function editFoodItem(id) {
+            const item = appData.foodExpenses.find(f => f.id === id);
+            if (!item) return;
+
+            document.getElementById('editFoodId').value = item.id;
+            document.getElementById('editFoodDateInput').value = item.date;
+            document.getElementById('editFoodNameInput').value = item.name;
+            document.getElementById('editFoodCountInput').value = item.count;
+            document.getElementById('editFoodPriceInput').value = item.price;
+
+            document.getElementById('foodEditModal').classList.remove('hidden');
+        }
+
+        function closeFoodEditModal() {
+            document.getElementById('foodEditModal').classList.add('hidden');
+        }
+
+        function saveEditedFoodItem() {
+            const id = parseFloat(document.getElementById('editFoodId').value);
+            const item = appData.foodExpenses.find(f => f.id === id);
+            if (!item) return;
+
+            item.date = document.getElementById('editFoodDateInput').value;
+            item.name = document.getElementById('editFoodNameInput').value.trim() || "Питание";
+            item.count = parseInt(document.getElementById('editFoodCountInput').value) || 1;
+            item.price = parseFloat(document.getElementById('editFoodPriceInput').value) || 0;
+
+            saveToLocalStorage();
+            closeFoodEditModal();
+        }
+
+        function deleteFoodItem(id) {
+            appData.foodExpenses = appData.foodExpenses.filter(item => item.id !== id);
+            saveToLocalStorage();
+        }
+
+        function renderFoodList() {
+            const listContainer = document.getElementById('foodList');
+            listContainer.innerHTML = '';
+
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth() + 1;
+
+            const filtered = appData.foodExpenses.filter(item => {
+                const itemDate = new Date(item.date);
+                return itemDate.getFullYear() === currentYear && (itemDate.getMonth() + 1) === currentMonth;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<div class="text-center text-xs text-slate-400 dark:text-slate-500 py-2">Нет записей в этом месяце</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const totalFull = item.count * item.price;
+                const halfPrice = totalFull * 0.5;
+
+                const dObj = new Date(item.date);
+                const dayPadded = String(dObj.getDate()).padStart(2, '0');
+                const monthPadded = String(dObj.getMonth() + 1).padStart(2, '0');
+                const datePill = `${dayPadded}.${monthPadded}`;
+
+                const div = document.createElement('div');
+                div.className = "bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-sm transition hover:shadow-md";
+                
+                div.innerHTML = `
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-2 py-0.5 rounded-lg text-[10px]">${datePill}</span>
+                            <span class="font-extrabold text-slate-900 dark:text-slate-100 text-xs">${item.name}</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-[11px]">
+                            <span class="text-slate-500 dark:text-slate-400">${item.count} шт x ${formatMoney(item.price)} = ${formatMoney(totalFull)}</span>
+                            <span class="bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 font-bold px-1.5 py-0.5 rounded-md text-[10px] border border-rose-200 dark:border-rose-900/50">-50% = ${formatMoney(halfPrice)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 text-slate-400 dark:text-slate-500 shrink-0">
+                        <button onclick="editFoodItem(${item.id})" title="Редактировать" class="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 flex items-center justify-center transition active:scale-90">
+                            <i class="fa-solid fa-pen-to-square text-xs"></i>
+                        </button>
+                        <button onclick="deleteFoodItem(${item.id})" title="Удалить" class="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 flex items-center justify-center transition active:scale-90">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function addBonus() {
+            const name = document.getElementById('bonusNameInput').value.trim() || "Премия";
+            const amount = parseFloat(document.getElementById('bonusAmountInput').value) || 0;
+            const period = parseInt(document.getElementById('bonusPeriodInput').value) || 1;
+
+            if (amount <= 0) {
+                alert("Введите сумму!");
+                return;
+            }
+
+            const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+            const item = {
+                id: Date.now(),
+                monthYear: currentMonthStr,
+                name: name,
+                amount: amount,
+                period: period
+            };
+
+            appData.bonuses.push(item);
+            document.getElementById('bonusNameInput').value = '';
+            document.getElementById('bonusAmountInput').value = '';
+
+            saveToLocalStorage();
+        }
+
+        function deleteBonusItem(id) {
+            appData.bonuses = appData.bonuses.filter(item => item.id !== id);
+            saveToLocalStorage();
+        }
+
+        function renderBonusList() {
+            const listContainer = document.getElementById('bonusList');
+            listContainer.innerHTML = '';
+
+            const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const filtered = appData.bonuses.filter(item => item.monthYear === currentMonthStr);
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<div class="text-center text-xs text-slate-400 dark:text-slate-500 py-2">Нет записей в этом месяце</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white dark:bg-slate-900/90 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between text-xs";
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-slate-800 dark:text-slate-200">${item.name}</div>
+                        <div class="text-[10px] text-slate-400 dark:text-slate-500">${item.period === 1 ? 'К авансу (1-15)' : 'К зарплате (16-31)'}</div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="font-bold text-emerald-600 dark:text-emerald-400">+${formatMoney(item.amount)}</div>
+                        <button onclick="deleteBonusItem(${item.id})" class="text-slate-400 hover:text-rose-500 transition">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function calculateAndRenderTotals() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            const splitDay = appData.settings.splitDay;
+
+            let advHours = 0, advWorkEarned = 0, advTaxiTotal = 0;
+            let salHours = 0, salWorkEarned = 0, salTaxiTotal = 0;
+
+            let detailedShiftsList = [];
+
+            Object.keys(appData.shifts).forEach(dateKey => {
+                const [dYear, dMonth, dDay] = dateKey.split('-').map(Number);
+                if (dYear === year && dMonth === month) {
+                    const shift = appData.shifts[dateKey];
+                    const hrs = shift.hours || 0;
+                    const earned = hrs * appData.settings.hourlyRate;
+                    const taxi = shift.hasTaxi ? appData.settings.taxiRate : 0;
+                    const totalDay = earned + taxi;
+
+                    detailedShiftsList.push({
+                        day: dDay,
+                        dateKey: `${String(dDay).padStart(2, '0')}.${String(dMonth).padStart(2, '0')}.${dYear}`,
+                        hours: hrs,
+                        earned: earned,
+                        taxi: taxi,
+                        totalDay: totalDay
+                    });
+
+                    if (dDay <= splitDay) {
+                        advHours += hrs;
+                        advWorkEarned += earned;
+                        advTaxiTotal += taxi;
+                    } else {
+                        salHours += hrs;
+                        salWorkEarned += earned;
+                        salTaxiTotal += taxi;
+                    }
+                }
+            });
+
+            detailedShiftsList.sort((a, b) => a.day - b.day);
+
+            let advFoodDeduction = 0;
+            let salFoodDeduction = 0;
+            let detailedFoodList = [];
+
+            appData.foodExpenses.forEach(item => {
+                const itemDate = new Date(item.date);
+                if (itemDate.getFullYear() === year && (itemDate.getMonth() + 1) === month) {
+                    const fullPrice = item.count * item.price;
+                    const halfPrice = fullPrice * 0.5;
+
+                    detailedFoodList.push({
+                        date: item.date,
+                        name: item.name,
+                        count: item.count,
+                        fullPrice: fullPrice,
+                        deduction: halfPrice
+                    });
+
+                    if (itemDate.getDate() <= splitDay) {
+                        advFoodDeduction += halfPrice;
+                    } else {
+                        salFoodDeduction += halfPrice;
+                    }
+                }
+            });
+
+            let advBonuses = 0;
+            let salBonuses = 0;
+            let detailedBonusesList = [];
+            const currentMonthStr = `${year}-${String(month).padStart(2, '0')}`;
+
+            appData.bonuses.forEach(item => {
+                if (item.monthYear === currentMonthStr) {
+                    detailedBonusesList.push({
+                        periodName: item.period === 1 ? 'Аванс (1-15)' : 'Зарплата (16-31)',
+                        name: item.name,
+                        amount: item.amount
+                    });
+
+                    if (item.period === 1) {
+                        advBonuses += item.amount;
+                    } else {
+                        salBonuses += item.amount;
+                    }
+                }
+            });
+
+            const advNet = (advWorkEarned + advTaxiTotal + advBonuses) - advFoodDeduction;
+            const salNet = (salWorkEarned + salTaxiTotal + salBonuses) - salFoodDeduction;
+
+            const totalGross = (advWorkEarned + advTaxiTotal + advBonuses) + (salWorkEarned + salTaxiTotal + salBonuses);
+            const totalDeductions = advFoodDeduction + salFoodDeduction;
+            const totalNet = advNet + salNet;
+
+            const advDayPadded = String(appData.settings.advancePayDay).padStart(2, '0');
+            const salDayPadded = String(appData.settings.salaryPayDay).padStart(2, '0');
+            const monthPadded = String(month).padStart(2, '0');
+            const nextMonthPadded = String(month === 12 ? 1 : month + 1).padStart(2, '0');
+            const nextYear = month === 12 ? year + 1 : year;
+
+            const advDateStr = `${advDayPadded}.${monthPadded}.${year}`;
+            const salDateStr = `${salDayPadded}.${nextMonthPadded}.${nextYear}`;
+
+            calculatedTotals = {
+                currentYear: year,
+                currentMonth: month,
+                monthNameYear: `${monthNames[month - 1]} ${year}`,
+                currency: appData.settings.currency,
+                hourlyRate: appData.settings.hourlyRate,
+                taxiRate: appData.settings.taxiRate,
+                totalNet: totalNet,
+                totalGross: totalGross,
+                totalDeductions: totalDeductions,
+                advNet: advNet,
+                advHours: advHours,
+                advTaxiTotal: advTaxiTotal,
+                advFoodDeduction: advFoodDeduction,
+                advBonuses: advBonuses,
+                advDateStr: advDateStr,
+                salNet: salNet,
+                salHours: salHours,
+                salTaxiTotal: salTaxiTotal,
+                salFoodDeduction: salFoodDeduction,
+                salBonuses: salBonuses,
+                salDateStr: salDateStr,
+                detailedShiftsList: detailedShiftsList,
+                detailedFoodList: detailedFoodList,
+                detailedBonusesList: detailedBonusesList
+            };
+
+            // Main UI
+            document.getElementById('totalNetSalary').innerText = formatMoney(totalNet);
+            document.getElementById('totalGrossSalary').innerText = formatMoney(totalGross);
+            document.getElementById('totalDeductions').innerText = `-${formatMoney(totalDeductions)}`;
+
+            document.getElementById('advanceNetPay').innerText = formatMoney(advNet);
+            document.getElementById('advanceHours').innerText = `${advHours} ч`;
+            document.getElementById('advanceTaxi').innerText = `+${formatMoney(advTaxiTotal)}`;
+            document.getElementById('advanceFoodDeduction').innerText = `-${formatMoney(advFoodDeduction)}`;
+            document.getElementById('advanceBonuses').innerText = `+${formatMoney(advBonuses)}`;
+
+            document.getElementById('salaryNetPay').innerText = formatMoney(salNet);
+            document.getElementById('salaryHours').innerText = `${salHours} ч`;
+            document.getElementById('salaryTaxi').innerText = `+${formatMoney(salTaxiTotal)}`;
+            document.getElementById('salaryFoodDeduction').innerText = `-${formatMoney(salFoodDeduction)}`;
+            document.getElementById('salaryBonuses').innerText = `+${formatMoney(salBonuses)}`;
+
+            document.getElementById('advanceDateLabel').innerText = advDateStr;
+            document.getElementById('salaryDateLabel').innerText = salDateStr;
+        }
+
+        function formatMoney(amount) {
+            const curr = appData.settings.currency || "₽";
+            const formattedNum = Math.round(amount).toLocaleString('ru-RU').replace(/,/g, ' ');
+            return `${formattedNum} ${curr}`;
+        }
+
+        function resetData() {
+            if (confirm("Вы действительно хотите сбросить все данные?")) {
+                localStorage.removeItem('mening_oyligim_data_v7');
+                location.reload();
+            }
+        }
+
+        // ULTRA-HD PDF EXPORT FUNCTION (SCALE 3, 300 DPI, BEZ XIRALIKSIZ)
+        function generatePdfReport() {
+            document.getElementById('pdfReportMonthTitle').innerText = calculatedTotals.monthNameYear;
+            document.getElementById('pdfReportCurrencyTag').innerText = `Валюта: ${calculatedTotals.currency}`;
+
+            const shiftsTbody = document.getElementById('pdfShiftsTableBody');
+            shiftsTbody.innerHTML = '';
+
+            if (calculatedTotals.detailedShiftsList.length === 0) {
+                shiftsTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8;">Нет зафиксированных смен в этом месяце</td></tr>`;
+            } else {
+                calculatedTotals.detailedShiftsList.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.dateKey}</td>
+                        <td>${item.hours} ч</td>
+                        <td>${formatMoney(calculatedTotals.hourlyRate)}</td>
+                        <td>${formatMoney(item.earned)}</td>
+                        <td>+${formatMoney(item.taxi)}</td>
+                        <td><strong>${formatMoney(item.totalDay)}</strong></td>
+                    `;
+                    shiftsTbody.appendChild(tr);
+                });
+            }
+
+            const foodTbody = document.getElementById('pdfFoodTableBody');
+            foodTbody.innerHTML = '';
+
+            if (calculatedTotals.detailedFoodList.length === 0) {
+                foodTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Нет расходов на питание в этом месяце</td></tr>`;
+            } else {
+                calculatedTotals.detailedFoodList.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.date}</td>
+                        <td>${item.name} (${item.count} шт)</td>
+                        <td>${formatMoney(item.fullPrice)}</td>
+                        <td style="color:#d97706; font-weight:bold;">50%</td>
+                        <td style="color:#dc2626; font-weight:bold;">-${formatMoney(item.deduction)}</td>
+                    `;
+                    foodTbody.appendChild(tr);
+                });
+            }
+
+            const bonusesTbody = document.getElementById('pdfBonusesTableBody');
+            bonusesTbody.innerHTML = '';
+
+            if (calculatedTotals.detailedBonusesList.length === 0) {
+                bonusesTbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Нет премий и льгот в этом месяце</td></tr>`;
+            } else {
+                calculatedTotals.detailedBonusesList.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.periodName}</td>
+                        <td>${item.name}</td>
+                        <td style="color:#16a34a; font-weight:bold;">+${formatMoney(item.amount)}</td>
+                    `;
+                    bonusesTbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('pdfSummaryWorkEarned').innerText = formatMoney(calculatedTotals.totalGross - (calculatedTotals.advTaxiTotal + calculatedTotals.salTaxiTotal + calculatedTotals.advBonuses + calculatedTotals.salBonuses));
+            document.getElementById('pdfSummaryTaxi').innerText = formatMoney(calculatedTotals.advTaxiTotal + calculatedTotals.salTaxiTotal);
+            document.getElementById('pdfSummaryBonuses').innerText = formatMoney(calculatedTotals.advBonuses + calculatedTotals.salBonuses);
+            document.getElementById('pdfSummaryDeductions').innerText = `-${formatMoney(calculatedTotals.totalDeductions)}`;
+            document.getElementById('pdfSummaryAdvNet').innerText = formatMoney(calculatedTotals.advNet);
+            document.getElementById('pdfSummarySalNet').innerText = formatMoney(calculatedTotals.salNet);
+            document.getElementById('pdfSummaryTotalNet').innerText = formatMoney(calculatedTotals.totalNet);
+
+            const element = document.getElementById('pdfReportTemplate');
+            element.parentElement.classList.remove('hidden');
+
+            const opt = {
+                margin:       [8, 8, 8, 8],
+                filename:     `Ведомость_${calculatedTotals.monthNameYear.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 1.0 },
+                html2canvas:  { 
+                    scale: 3, 
+                    useCORS: true, 
+                    allowTaint: true, 
+                    letterRendering: true,
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.parentElement.classList.add('hidden');
+            });
+        }
+
+        // ==========================================
+        // SMART LOCAL ENGINE & GEMINI API
+        // ==========================================
+
+        function processQueryLocally(userQuery, imageObj) {
+            if (!userQuery) userQuery = "";
+            const q = userQuery.toLowerCase().trim();
+            let actions = [];
+            let text = "";
+
+            // 1. Multiple Day Shift Insertion
+            const numberSeqMatch = q.match(/([\d\s,.\-\/]+)/);
+            if ((q.includes('час') || q.includes('soat') || q.includes('смен') || q.includes('числа') || q.includes('по') || q.includes('число')) && numberSeqMatch) {
+                const hoursMatch = q.match(/(\d+)\s*(?:часо|часа|часов|соат|ч|s)/) || q.match(/по\s*(\d+)/) || q.match(/на\s*(\d+)/);
+                let hours = 12;
+                if (hoursMatch) hours = parseInt(hoursMatch[1]) || 12;
+
+                const rawNumbers = numberSeqMatch[1].split(/[\s,.\-\/]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n >= 1 && n <= 31);
+                
+                let days = rawNumbers;
+                if (hoursMatch && days.lastIndexOf(hours) === days.length - 1 && days.length > 1) {
+                    days = days.slice(0, days.length - 1);
+                }
+                const uniqueDays = [...new Set(days)];
+
+                if (uniqueDays.length > 0) {
+                    uniqueDays.forEach(d => {
+                        actions.push({
+                            type: "SET_SHIFT",
+                            day: d,
+                            hours: hours,
+                            hasTaxi: true
+                        });
+                    });
+                    text = `Поставлены смены по ${hours} ч. на следующие дни (${uniqueDays.length} дн.): **${uniqueDays.join(', ')}**.`;
+                    return { cleanText: text, actions: actions };
+                }
+            }
+
+            // 2. Food & Personal Purchases
+            const priceMatch = q.match(/(\d+)\s*(?:руб|рублей|сум|so'm|₽|\$)?$/) || q.match(/(?:за|narxi|цена|стоил|на)\s*(\d+)/) || q.match(/(\d{3,})/);
+            if (q.includes('купил') || q.includes('sotib') || q.includes('обед') || q.includes('ранчо') || q.includes('ед') || q.includes('покупк') || priceMatch) {
+                let price = priceMatch ? parseInt(priceMatch[1]) : 0;
+                let name = "Питание / Покупка";
+
+                if (q.includes('ранчо')) {
+                    name = "С Ранчо Дона";
+                } else {
+                    let cleanName = q.replace(/bugun|сегодня|купил|sotib|oldim|за|narxi|цена|стоил|руб|рублей|сум|so'm|₽|\d+/gi, '').trim();
+                    if (cleanName.length > 2) {
+                        name = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                    }
+                }
+
+                if (price > 0) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    actions.push({
+                        type: "ADD_FOOD",
+                        date: todayStr,
+                        name: name,
+                        count: 1,
+                        price: price
+                    });
+                    text = `Зафиксирован расход за покупку **"${name}"** на сумму **${price} ${calculatedTotals.currency || '₽'}** (с 50% скидкой к удержанию: **${Math.round(price * 0.5)} ${calculatedTotals.currency || '₽'}**).`;
+                    return { cleanText: text, actions: actions };
+                }
+            }
+
+            // 3. Salary and Payout Info Questions
+            if (q.includes('зарплат') || q.includes('oylik') || q.includes('аванс') || q.includes('когда') || q.includes('qachon') || q.includes('расчет') || q.includes('сколько') || q.includes('qancha')) {
+                text = `📊 **Расчетный листок за ${calculatedTotals.monthNameYear}:**\n\n` +
+                       `• **Чистая ЗП (на руки):** ${formatMoney(calculatedTotals.totalNet)}\n` +
+                       `• **Аванс (1-15 число):** ${formatMoney(calculatedTotals.advNet)} (Выплата: ${calculatedTotals.advDateStr})\n` +
+                       `• **Зарплата (16-31 число):** ${formatMoney(calculatedTotals.salNet)} (Выплата: ${calculatedTotals.salDateStr})\n` +
+                       `• **Всего отработано:** ${calculatedTotals.advHours + calculatedTotals.salHours} ч.\n` +
+                       `• **Удержания за питание (-50%):** -${formatMoney(calculatedTotals.totalDeductions)}`;
+                return { cleanText: text, actions: [] };
+            }
+
+            text = `Запрос обработан. Укажите смены (например, **"1,2,5,7,8,11,15,16,17 по 12 часов"**), внесите покупку (например, **"Сегодня купил С Ранчо Дона за 620"**) или спросите про зарплату.`;
+            return { cleanText: text, actions: [] };
+        }
+
+        function toggleAiModal() {
+            const modal = document.getElementById('aiModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function handleAiKeyPress(e) {
+            if (e.key === 'Enter') sendAiMessage();
+        }
+
+        function askAiQuick(questionText) {
+            document.getElementById('aiInput').value = questionText;
+            sendAiMessage();
+        }
+
+        function triggerCameraSelect() {
+            document.getElementById('aiImageInput').click();
+        }
+
+        function handleAiImageSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const dataUrl = event.target.result;
+                const base64Data = dataUrl.split(',')[1];
+                const mimeType = file.type || 'image/jpeg';
+
+                pendingAiImage = {
+                    dataUrl: dataUrl,
+                    base64: base64Data,
+                    mimeType: mimeType
+                };
+
+                document.getElementById('aiImagePreviewImg').src = dataUrl;
+                document.getElementById('aiImagePreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removePendingAiImage() {
+            pendingAiImage = null;
+            document.getElementById('aiImageInput').value = '';
+            document.getElementById('aiImagePreviewContainer').classList.add('hidden');
+        }
+
+        function renderChatHistoryUI() {
+            const container = document.getElementById('aiChatHistory');
+            container.innerHTML = '';
+
+            if (!appData.chatHistory || appData.chatHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="flex items-start space-x-2">
+                        <div class="w-7 h-7 bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/30">
+                            <i class="fa-solid fa-robot text-xs"></i>
+                        </div>
+                        <div class="bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 text-slate-800 dark:text-slate-200 p-3 rounded-2xl rounded-tl-none max-w-[85%] leading-relaxed">
+                            Здравствуйте! Я ваш AI Финансовый Ассистент 🤖<br><br>
+                            <strong>🍕 Учет покупок и питания:</strong> Напишите, например: <em>"Сегодня купил С Ранчо Дона за 620"</em> — я автоматически занесу эту покупку в список со скидкой 50%!<br><br>
+                            <strong>⚡ Заполнение смен:</strong> Напишите, например: <em>"1,2,5,7,8,11,15,16,17 по 12 часов"</em> — я сразу поставлю смены на все указанные дни!<br><br>
+                            <strong>📷 Распознавание графиков:</strong> Отправьте фото графика смен для авто-заполнения календаря!
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            appData.chatHistory.forEach(msg => {
+                appendChatBubbleDOM(msg.text, msg.sender, msg.imageUrl);
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendAiMessage() {
+            const inputEl = document.getElementById('aiInput');
+            const question = inputEl.value.trim();
+            
+            if (!question && !pendingAiImage) return;
+
+            const currentImg = pendingAiImage;
+            const userMsgText = question || "📷 Распознай график смен с изображения и внеси в календарь.";
+
+            addChatMessageToHistory(userMsgText, 'user', currentImg ? currentImg.dataUrl : null);
+            
+            inputEl.value = '';
+            removePendingAiImage();
+
+            const loadingId = appendLoadingBubble(currentImg ? "Анализ изображения (OCR Vision 99%)..." : "AI анализирует данные...");
+
+            try {
+                const responseText = await callGeminiAssistant(question, currentImg);
+                removeBubble(loadingId);
+
+                const { cleanText, actions } = parseAiActions(responseText);
+
+                let actionExecutedNote = "";
+                if (actions && actions.length > 0) {
+                    let addedShiftsCount = 0;
+                    let addedFoodCount = 0;
+
+                    actions.forEach(act => {
+                        if (act.type === "SET_SHIFT") {
+                            const year = calculatedTotals.currentYear;
+                            const month = calculatedTotals.currentMonth;
+                            const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(act.day).padStart(2, '0')}`;
+                            appData.shifts[dateKey] = {
+                                hours: act.hours || 12,
+                                hasTaxi: act.hasTaxi !== undefined ? act.hasTaxi : true
+                            };
+                            addedShiftsCount++;
+                        } else if (act.type === "DELETE_SHIFT") {
+                            const year = calculatedTotals.currentYear;
+                            const month = calculatedTotals.currentMonth;
+                            const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(act.day).padStart(2, '0')}`;
+                            delete appData.shifts[dateKey];
+                        } else if (act.type === "ADD_FOOD") {
+                            const foodItem = {
+                                id: Date.now() + Math.random(),
+                                date: act.date || new Date().toISOString().split('T')[0],
+                                name: act.name || "Питание",
+                                count: act.count || 1,
+                                price: act.price || 0
+                            };
+                            appData.foodExpenses.push(foodItem);
+                            addedFoodCount++;
+                        }
+                    });
+
+                    saveToLocalStorage();
+                    
+                    if (addedShiftsCount > 0) {
+                        actionExecutedNote += `<br><br><span class="text-emerald-500 font-bold">✓ В календарь успешно добавлено ${addedShiftsCount} смен!</span>`;
+                    }
+                    if (addedFoodCount > 0) {
+                        actionExecutedNote += `<br><br><span class="text-emerald-500 font-bold">✓ В расход питания персонала (-50%) успешно добавлена покупка!</span>`;
+                    }
+                }
+
+                addChatMessageToHistory(cleanText + actionExecutedNote, 'bot');
+            } catch (err) {
+                removeBubble(loadingId);
+                const localRes = processQueryLocally(question, currentImg);
+                let fallbackActionsNote = "";
+                if (localRes.actions && localRes.actions.length > 0) {
+                    localRes.actions.forEach(act => {
+                        if (act.type === "SET_SHIFT") {
+                            const dateKey = `${calculatedTotals.currentYear}-${String(calculatedTotals.currentMonth).padStart(2, '0')}-${String(act.day).padStart(2, '0')}`;
+                            appData.shifts[dateKey] = { hours: act.hours || 12, hasTaxi: true };
+                        } else if (act.type === "ADD_FOOD") {
+                            appData.foodExpenses.push({ id: Date.now() + Math.random(), date: act.date, name: act.name, count: 1, price: act.price });
+                        }
+                    });
+                    saveToLocalStorage();
+                    fallbackActionsNote = `<br><br><span class="text-emerald-500 font-bold">✓ Изменения применены автоматически!</span>`;
+                }
+                addChatMessageToHistory(localRes.cleanText + fallbackActionsNote, 'bot');
+            }
+        }
+
+        function addChatMessageToHistory(text, sender, imageUrl = null) {
+            const msgObj = {
+                id: Date.now(),
+                timestamp: Date.now(),
+                text: text,
+                sender: sender,
+                imageUrl: imageUrl
+            };
+
+            if (!appData.chatHistory) appData.chatHistory = [];
+            appData.chatHistory.push(msgObj);
+            saveToLocalStorage();
+
+            appendChatBubbleDOM(text, sender, imageUrl);
+        }
+
+        function appendChatBubbleDOM(text, sender, imageUrl = null) {
+            const container = document.getElementById('aiChatHistory');
+            const wrapper = document.createElement('div');
+
+            if (sender === 'user') {
+                wrapper.className = "flex justify-end";
+                let imgHtml = imageUrl ? `<img src="${imageUrl}" class="w-32 h-32 object-cover rounded-xl mb-2 border border-white/20">` : '';
+                wrapper.innerHTML = `
+                    <div class="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] leading-relaxed shadow-sm">
+                        ${imgHtml}
+                        ${escapeHtml(text)}
+                    </div>
+                `;
+            } else {
+                wrapper.className = "flex items-start space-x-2";
+                wrapper.innerHTML = `
+                    <div class="w-7 h-7 bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/30">
+                        <i class="fa-solid fa-robot text-xs"></i>
+                    </div>
+                    <div class="bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 text-slate-800 dark:text-slate-200 p-3 rounded-2xl rounded-tl-none max-w-[85%] leading-relaxed">
+                        ${formatBotResponse(text)}
+                    </div>
+                `;
+            }
+
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function parseAiActions(text) {
+            const actionRegex = /\[\[ACTION:(.*?)\]\]/g;
+            let match;
+            const actions = [];
+            let cleanText = text;
+
+            while ((match = actionRegex.exec(text)) !== null) {
+                try {
+                    const actionJson = JSON.parse(match[1]);
+                    actions.push(actionJson);
+                } catch(e) {
+                    console.error("Action JSON parse error", e);
+                }
+            }
+
+            cleanText = cleanText.replace(actionRegex, '').trim();
+            return { cleanText, actions };
+        }
+
+        function appendLoadingBubble(messageText) {
+            const id = 'loading_' + Date.now();
+            const container = document.getElementById('aiChatHistory');
+            const wrapper = document.createElement('div');
+            wrapper.id = id;
+            wrapper.className = "flex items-start space-x-2";
+            wrapper.innerHTML = `
+                <div class="w-7 h-7 bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/30">
+                    <i class="fa-solid fa-robot text-xs"></i>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 p-3 rounded-2xl rounded-tl-none flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-indigo-500"></i>
+                    <span>${messageText || "Анализ данных..."}</span>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        function removeBubble(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function formatBotResponse(str) {
+            return str.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        }
+
+        async function callGeminiAssistant(userQuery, imageObj = null) {
+            const apiKey = "";
+
+            if (!apiKey) {
+                const localRes = processQueryLocally(userQuery, imageObj);
+                let tags = "";
+                if (localRes.actions && localRes.actions.length > 0) {
+                    localRes.actions.forEach(a => {
+                        tags += `\n[[ACTION:${JSON.stringify(a)}]]`;
+                    });
+                }
+                return localRes.cleanText + tags;
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            const systemPrompt = `
+Ты — умный финансовый AI-ассистент приложения «Моя Зарплата».
+Отвечай НА РУССКОМ ЯЗЫКЕ (но поддерживай и узбекский язык).
+
+ТЕКУЩАЯ ДАТА И КОНТЕКСТ:
+- Сегодняшняя дата: ${todayStr}
+- Месяц: ${calculatedTotals.monthNameYear}
+- Чистая ЗП: ${calculatedTotals.totalNet} ${calculatedTotals.currency}
+- Заработано: ${calculatedTotals.totalGross} ${calculatedTotals.currency}
+- Почасовая ставка: ${calculatedTotals.hourlyRate} ${calculatedTotals.currency}
+- Такси за смену: ${calculatedTotals.taxiRate} ${calculatedTotals.currency}
+
+ГЕНЕРАЦИЯ ДЕЙСТВИЙ (ACTION TAGS):
+
+1. МНОГОДНЕВНЫЙ ВВОД СМЕН (например: "1,2,5,7,8,11,15,16,17 по 12 часов"):
+Для КАЖДОГО дня сгенерируй отдельный тег [[ACTION:...]]!
+Пример для "1, 2, 5 по 12 часов":
+[[ACTION:{"type":"SET_SHIFT","day":1,"hours":12,"hasTaxi":true}]]
+[[ACTION:{"type":"SET_SHIFT","day":2,"hours":12,"hasTaxi":true}]]
+[[ACTION:{"type":"SET_SHIFT","day":5,"hours":12,"hasTaxi":true}]]
+
+2. УЧЕТ ПОКУПОК И ПИТАНИЯ (-50%):
+Если пользователь пишет: "Сегодня купил С Ранчо Дона за 620" или "Bugun С Ранчо Дона sotib oldim 620":
+Выдай тег: [[ACTION:{"type":"ADD_FOOD","date":"${todayStr}","name":"С Ранчо Дона","count":1,"price":620}]]
+
+3. УДАЛЕНИЕ СМЕНЫ:
+[[ACTION:{"type":"DELETE_SHIFT","day":5}]]
+
+Отвечай кратко, вежливо и точно!
+            `;
+
+            const parts = [];
+            if (userQuery) {
+                parts.push({ text: userQuery });
+            } else {
+                parts.push({ text: "Распознай график смен с этого изображения и внеси в календарь." });
+            }
+
+            if (imageObj && imageObj.base64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: imageObj.mimeType || "image/jpeg",
+                        data: imageObj.base64
+                    }
+                });
+            }
+
+            const payload = {
+                contents: [{ role: "user", parts: parts }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+
+            for (let attempt = 0; attempt <= 5; attempt++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+
+                    const result = await response.json();
+                    const replyText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (replyText) return replyText;
+                    throw new Error("Empty AI response");
+                } catch (err) {
+                    if (attempt === 5) {
+                        const localRes = processQueryLocally(userQuery, imageObj);
+                        let tags = "";
+                        if (localRes.actions && localRes.actions.length > 0) {
+                            localRes.actions.forEach(a => {
+                                tags += `\n[[ACTION:${JSON.stringify(a)}]]`;
+                            });
+                        }
+                        return localRes.cleanText + tags;
+                    }
+                    await new Promise(res => setTimeout(res, delays[attempt]));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
