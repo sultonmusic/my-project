@@ -2,16 +2,162 @@
   const frame = document.getElementById('appFrame');
   if (!frame) return;
 
-  const APP_VERSION = 'v0.0.2';
+  const APP_VERSION = 'v0.0.3';
 
   function addVersionFooter(doc){
-    const old=doc.getElementById('appVersionFooter');
-    if(old){ old.textContent=APP_VERSION; return; }
+    if (doc.getElementById('appVersionFooter')) return;
     const footer = doc.createElement('div');
     footer.id = 'appVersionFooter';
     footer.textContent = APP_VERSION;
     footer.style.cssText = 'text-align:center;padding:18px 12px 105px;color:#64748b;font:600 12px system-ui;letter-spacing:.04em;';
     doc.body.appendChild(footer);
+  }
+
+  function money(v, currency='₽'){
+    const n = Math.round(Number(v)||0);
+    return n.toLocaleString('ru-RU') + ' ' + currency;
+  }
+
+  function getTotals(win){
+    try { return win.eval('calculatedTotals'); } catch(e) { return null; }
+  }
+
+  function getMonthKey(t){
+    if(!t) return 'unknown';
+    return String(t.currentYear) + '-' + String(t.currentMonth).padStart(2,'0');
+  }
+
+  function loadPayoutData(win){
+    const t=getTotals(win), key='mz_payout_reconcile_'+getMonthKey(t);
+    try { return JSON.parse(win.localStorage.getItem(key)||'{}'); } catch(e) { return {}; }
+  }
+
+  function savePayoutData(win,data){
+    const t=getTotals(win), key='mz_payout_reconcile_'+getMonthKey(t);
+    win.localStorage.setItem(key,JSON.stringify(data));
+  }
+
+  function calcReconcile(win,data){
+    const t=getTotals(win)||{};
+    const advExpected=Number(t.advNet)||0;
+    const salExpected=Number(t.salNet)||0;
+    const advReceived=Number(data.advReceived)||0;
+    const salReceived=Number(data.salReceived)||0;
+    const advDiff=advExpected-advReceived;
+    const salDiff=salExpected-salReceived;
+    return {
+      advExpected,salExpected,advReceived,salReceived,advDiff,salDiff,
+      totalExpected:advExpected+salExpected,
+      totalReceived:advReceived+salReceived,
+      totalDiff:advDiff+salDiff,
+      currency:t.currency||'₽',
+      monthName:t.monthNameYear||''
+    };
+  }
+
+  function reconcileStatus(diff){
+    if(diff>0) return 'Недоплата';
+    if(diff<0) return 'Переплата';
+    return 'Совпадает';
+  }
+
+  function addPayoutSection(win,doc){
+    if(doc.getElementById('payoutReconcileSection')) return;
+    const main=doc.querySelector('main');
+    if(!main) return;
+    const section=doc.createElement('section');
+    section.id='payoutReconcileSection';
+    section.className='bg-white dark:bg-slate-900/80 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4';
+    section.innerHTML=`
+      <div class="flex items-center gap-2">
+        <span class="text-emerald-500 text-lg">💳</span>
+        <div>
+          <h3 class="font-bold text-slate-900 dark:text-white">Фактически полученные выплаты</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Введите сколько реально получили — приложение покажет недоплату или переплату.</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-slate-500 dark:text-slate-400 block mb-1">Получено аванса</label>
+          <input id="advReceivedInput" type="number" min="0" step="1" placeholder="0" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 font-bold focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 dark:text-slate-400 block mb-1">Получено зарплаты</label>
+          <input id="salReceivedInput" type="number" min="0" step="1" placeholder="0" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 font-bold focus:outline-none focus:border-emerald-500">
+        </div>
+      </div>
+      <textarea id="payoutNoteInput" rows="2" placeholder="Комментарий, например: выдали наличными 25 числа" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500"></textarea>
+      <button id="savePayoutBtn" type="button" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Сохранить и проверить выплату</button>
+      <div id="payoutResult" class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-sm"></div>
+      <p class="text-[11px] text-slate-500 dark:text-slate-400">Эта сверка автоматически попадёт в PDF-отчёт для бухгалтерии.</p>
+    `;
+    const footer=doc.getElementById('appVersionFooter');
+    if(footer) main.appendChild(section); else main.appendChild(section);
+
+    const data=loadPayoutData(win);
+    section.querySelector('#advReceivedInput').value=data.advReceived??'';
+    section.querySelector('#salReceivedInput').value=data.salReceived??'';
+    section.querySelector('#payoutNoteInput').value=data.note||'';
+
+    function render(){
+      const d={
+        advReceived:section.querySelector('#advReceivedInput').value,
+        salReceived:section.querySelector('#salReceivedInput').value,
+        note:section.querySelector('#payoutNoteInput').value.trim()
+      };
+      const r=calcReconcile(win,d), el=section.querySelector('#payoutResult');
+      const cls=r.totalDiff>0?'text-rose-500':r.totalDiff<0?'text-amber-500':'text-emerald-500';
+      el.innerHTML=`
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div>Должны аванс: <b>${money(r.advExpected,r.currency)}</b></div><div>Получено: <b>${money(r.advReceived,r.currency)}</b></div>
+          <div>Должны ЗП: <b>${money(r.salExpected,r.currency)}</b></div><div>Получено: <b>${money(r.salReceived,r.currency)}</b></div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 font-bold ${cls}">${reconcileStatus(r.totalDiff)}: ${money(Math.abs(r.totalDiff),r.currency)}</div>`;
+    }
+    section.querySelector('#savePayoutBtn').addEventListener('click',()=>{
+      const d={
+        advReceived:Number(section.querySelector('#advReceivedInput').value)||0,
+        salReceived:Number(section.querySelector('#salReceivedInput').value)||0,
+        note:section.querySelector('#payoutNoteInput').value.trim(),
+        savedAt:new Date().toISOString()
+      };
+      savePayoutData(win,d); render();
+    });
+    section.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',render));
+    render();
+  }
+
+  function injectPdfReconcile(win,doc){
+    const tpl=doc.getElementById('pdfReportTemplate');
+    if(!tpl) return;
+    let box=doc.getElementById('pdfPayoutReconcile');
+    if(!box){
+      box=doc.createElement('div');
+      box.id='pdfPayoutReconcile';
+      box.style.cssText='margin:14px 20px 20px;border:1px solid #cbd5e1;border-radius:8px;padding:12px;font-family:Segoe UI,Arial,sans-serif;';
+      tpl.appendChild(box);
+    }
+    const data=loadPayoutData(win), r=calcReconcile(win,data);
+    const conclusion=r.totalDiff>0?`Недоплата ${money(r.totalDiff,r.currency)}`:r.totalDiff<0?`Переплата ${money(Math.abs(r.totalDiff),r.currency)}`:'Расхождений нет';
+    box.innerHTML=`
+      <div style="font-size:15px;font-weight:800;margin-bottom:8px;color:#0f172a;">Сверка фактически полученных выплат</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <tr><th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Выплата</th><th style="border:1px solid #cbd5e1;padding:6px;">Начислено к выплате</th><th style="border:1px solid #cbd5e1;padding:6px;">Получено фактически</th><th style="border:1px solid #cbd5e1;padding:6px;">Разница</th></tr>
+        <tr><td style="border:1px solid #cbd5e1;padding:6px;">Аванс</td><td style="border:1px solid #cbd5e1;padding:6px;">${money(r.advExpected,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;">${money(r.advReceived,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;">${reconcileStatus(r.advDiff)} ${money(Math.abs(r.advDiff),r.currency)}</td></tr>
+        <tr><td style="border:1px solid #cbd5e1;padding:6px;">Зарплата</td><td style="border:1px solid #cbd5e1;padding:6px;">${money(r.salExpected,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;">${money(r.salReceived,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;">${reconcileStatus(r.salDiff)} ${money(Math.abs(r.salDiff),r.currency)}</td></tr>
+        <tr><td style="border:1px solid #cbd5e1;padding:6px;font-weight:700;">Итого</td><td style="border:1px solid #cbd5e1;padding:6px;font-weight:700;">${money(r.totalExpected,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;font-weight:700;">${money(r.totalReceived,r.currency)}</td><td style="border:1px solid #cbd5e1;padding:6px;font-weight:700;">${conclusion}</td></tr>
+      </table>
+      ${data.note?`<div style="margin-top:8px;font-size:10px;color:#475569;"><b>Комментарий сотрудника:</b> ${String(data.note).replace(/[<>]/g,'')}</div>`:''}
+      <div style="margin-top:8px;font-size:10px;color:#64748b;">Отчёт сформирован приложением «Моя Зарплата», версия ${APP_VERSION}. Данные о фактически полученных суммах введены пользователем.</div>
+    `;
+  }
+
+  function patchPdf(win,doc){
+    const originalPdf=win.generatePdfReport;
+    if(typeof originalPdf!=='function' || originalPdf.__reconcilePatched) return;
+    const wrapped=function(){ injectPdfReconcile(win,doc); return originalPdf.apply(this,arguments); };
+    wrapped.__reconcilePatched=true;
+    win.generatePdfReport=wrapped;
   }
 
   function nums(s){ return (s.match(/\d{1,2}/g)||[]).map(Number); }
@@ -35,117 +181,71 @@
   }
 
   function cleanProductName(s){
-    return String(s||'')
-      .replace(/\b(?:итого|скидка|вычет|полная цена|цена|кол-во|количество|шт|руб|рублей|р|50%|x|х)\b/gi,' ')
+    return s
+      .replace(/\b(?:итого|скидка|вычет|полная цена|цена|кол-во|количество|шт|руб|рублей|р)\b/gi,' ')
       .replace(/\d+[.,]\d+/g,' ')
       .replace(/\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?/g,' ')
       .replace(/\d+\s*(?:шт|x|х)/gi,' ')
-      .replace(/\d{2,7}\s*(?:₽|р\.?|руб(?:лей)?|R)/gi,' ')
-      .replace(/\b\d+\b/g,' ')
-      .replace(/[=:_|%+*]+/g,' ')
+      .replace(/\d{2,7}\s*(?:₽|р\.?|руб(?:лей)?)/gi,' ')
+      .replace(/[=:_|]+/g,' ')
       .replace(/\s+/g,' ')
-      .replace(/^[^A-Za-zА-Яа-яЁё]+|[^A-Za-zА-Яа-яЁё]+$/g,'')
+      .replace(/^[^A-Za-zА-Яа-яЁё]+|[^A-Za-zА-Яа-яЁё)]+$/g,'')
       .trim();
   }
 
-  function nameScore(name){
-    const letters=(name.match(/[A-Za-zА-Яа-яЁё]/g)||[]).length;
-    const words=name.split(/\s+/).filter(Boolean).length;
-    let score=letters + Math.min(words,4)*2;
-    if(/ранчо/i.test(name)) score+=20;
-    if(/шампин/i.test(name)) score+=15;
-    if(/халоп|холод|хлеб/i.test(name)) score+=8;
-    return score;
-  }
-
-  function plausibleName(name){
-    if(!name) return false;
-    const letters=(name.match(/[A-Za-zА-Яа-яЁё]/g)||[]).length;
-    if(letters<3) return false;
-    if(/^(?:x|х|r|р|руб|шт|итого|скидка|цена)$/i.test(name.trim())) return false;
+  function goodName(s){
+    const t=s.trim();
+    if(t.length<3) return false;
+    if(!/[A-Za-zА-Яа-яЁё]{3}/.test(t)) return false;
+    if(/^(x|х|r|р|руб|шт|итого|скидка|total|price)$/i.test(t)) return false;
+    if(/50\s*%|\d{3,}/.test(t)) return false;
     return true;
-  }
-
-  function moneyValues(line){
-    const vals=[];
-    for(const m of line.matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?|R)\b?/gi)) vals.push(Number(m[1]));
-    if(!vals.length){
-      for(const m of line.matchAll(/(?:^|\s)(\d{2,6})(?=\s|$)/g)){
-        const n=Number(m[1]); if(n>=20) vals.push(n);
-      }
-    }
-    return vals;
   }
 
   function parseFoodText(text){
     const rawLines=text.split(/\r?\n/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
     const items=[];
-
     for(let i=0;i<rawLines.length;i++){
       const line=rawLines[i];
       if(/(итог|вычет|чистая|заработ|дата|кол-во|полная цена|расход|питани|наименование|что купили)/i.test(line)) continue;
-
-      const money=moneyValues(line);
-      if(!money.length) continue;
-
-      const nearby=[];
-      const same=cleanProductName(line);
-      if(plausibleName(same)) nearby.push(same);
-
-      for(let d=1;d<=3;d++){
-        if(i-d>=0){
-          const c=cleanProductName(rawLines[i-d]);
-          if(plausibleName(c) && !moneyValues(rawLines[i-d]).length) nearby.push(c);
+      const money=[...line.matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?)/gi)].map(m=>Number(m[1]));
+      let name=cleanProductName(line);
+      if(money.length){
+        const candidates=[];
+        for(let j=Math.max(0,i-2);j<=Math.min(rawLines.length-1,i+1);j++){
+          if(j===i) continue;
+          const c=cleanProductName(rawLines[j]); if(goodName(c)) candidates.push(c);
         }
-        if(i+d<rawLines.length){
-          const c=cleanProductName(rawLines[i+d]);
-          if(plausibleName(c) && !moneyValues(rawLines[i+d]).length) nearby.push(c);
-        }
+        if(!goodName(name) && candidates.length) name=candidates.sort((a,b)=>b.length-a.length)[0];
+        if(goodName(name)) items.push({name:name.slice(0,80),price:Math.max(...money)});
+      } else if(goodName(name) && i+1<rawLines.length){
+        const nextMoney=[...rawLines[i+1].matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?)/gi)].map(m=>Number(m[1]));
+        if(nextMoney.length) items.push({name:name.slice(0,80),price:Math.max(...nextMoney)});
       }
-
-      nearby.sort((a,b)=>nameScore(b)-nameScore(a));
-      const name=nearby[0];
-      if(!name) continue; // junk nom bilan xarid qo‘shmaymiz
-
-      let price=Math.max(...money);
-      // Cardlarda 2 x 640 = 1280 va -50%=640 bo‘lishi mumkin. Eng katta son ko‘pincha to‘liq narx.
-      if(price>0) items.push({name:name.slice(0,80),price});
     }
-
-    const unique=[]; const seen=new Set();
+    const unique=[],seen=new Set();
     for(const x of items){
       const normalized=x.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi,' ').trim();
-      if(normalized.length<3) continue;
       const k=normalized+'|'+x.price;
-      if(!seen.has(k)){seen.add(k);unique.push(x);}
+      if(normalized.length>=3&&!seen.has(k)){seen.add(k);unique.push(x);}
     }
     return unique.slice(0,12);
   }
 
-  async function preprocessImage(win,dataUrl){
-    return await new Promise((resolve,reject)=>{
+  async function prepareImage(win,dataUrl){
+    return await new Promise((resolve)=>{
       const img=new win.Image();
       img.onload=()=>{
         try{
-          const scale=Math.max(2, Math.min(3, 1800/img.width));
+          const maxW=2200, scale=Math.max(2,Math.min(3,maxW/img.width));
           const c=win.document.createElement('canvas');
           c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
           const ctx=c.getContext('2d');
-          ctx.imageSmoothingEnabled=true;
-          ctx.drawImage(img,0,0,c.width,c.height);
-          const data=ctx.getImageData(0,0,c.width,c.height);
-          const p=data.data;
-          for(let i=0;i<p.length;i+=4){
-            const g=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2];
-            const v=g>205?255:(g<70?0:Math.max(0,Math.min(255,(g-128)*1.7+128)));
-            p[i]=p[i+1]=p[i+2]=v;
-          }
-          ctx.putImageData(data,0,0);
-          resolve(c.toDataURL('image/png'));
+          ctx.filter='grayscale(1) contrast(1.45)'; ctx.drawImage(img,0,0,c.width,c.height);
+          resolve(c.toDataURL('image/jpeg',0.95));
         }catch(e){ resolve(dataUrl); }
       };
-      img.onerror=()=>resolve(dataUrl);
-      img.src=dataUrl;
+      img.onerror=()=>resolve(dataUrl); img.src=dataUrl;
     });
   }
 
@@ -162,7 +262,10 @@
   frame.addEventListener('load', async ()=>{
     const win=frame.contentWindow, doc=frame.contentDocument;
     addVersionFooter(doc);
+    addPayoutSection(win,doc);
+    patchPdf(win,doc);
     try { win.history.scrollRestoration='manual'; } catch(e){}
+    try { win.scrollTo(0,0); } catch(e){}
 
     try{ await ensureTesseract(win); }catch(e){ console.error(e); return; }
     const original=win.callGeminiAssistant;
@@ -172,12 +275,8 @@
         return typeof original==='function' ? original.call(win,userQuery,imageObj) : 'Rasm yuboring.';
       }
       try{
-        const prepared=await preprocessImage(win,imageObj.dataUrl);
-        const worker=await win.Tesseract.createWorker('rus+eng',1,{logger:m=>console.log('OCR',m.status,m.progress||'')});
-        await worker.setParameters({
-          preserve_interword_spaces:'1',
-          tessedit_pageseg_mode:'6'
-        });
+        const prepared=await prepareImage(win,imageObj.dataUrl);
+        const worker=await win.Tesseract.createWorker('eng+rus',1,{logger:m=>console.log('OCR',m.status,m.progress||'')});
         const result=await worker.recognize(prepared,{rotateAuto:true});
         await worker.terminate();
         const text=(result.data.text||'').trim();
@@ -188,9 +287,9 @@
             const today=new Date().toISOString().split('T')[0];
             const tags=items.map(x=>`[[ACTION:${JSON.stringify({type:'ADD_FOOD',date:today,name:x.name,count:1,price:x.price})}]]`).join('\n');
             const summary=items.map(x=>`${x.name} — ${x.price} ₽`).join(', ');
-            return `🧾 Xarid rasmi aniqlandi. ${items.length} ta mahsulot nomi va narxi topildi: ${summary}.\n${tags}`;
+            return `🧾 Rasm xarid/ovqat rasmi sifatida aniqlandi. ${items.length} ta pozitsiya topildi: ${summary}.\n${tags}`;
           }
-          return `🧾 Xarid rasmi aniqlandi, lekin mahsulot nomini ishonchli o‘qiy olmadim. Noto‘g‘ri nom kiritmaslik uchun xarid avtomatik qo‘shilmadi. Rasmda mahsulot nomi va narx qismini kattaroq qilib yuboring. OCR: **${text.slice(0,700)||'matn topilmadi'}**`;
+          return `🧾 Xarid rasmi aniqlandi, lekin mahsulot nomi yoki narxini ishonchli ajrata olmadim. OCR matni: **${text.slice(0,700)||'matn topilmadi'}**`;
         }
 
         const pairs=parseScheduleText(text);
