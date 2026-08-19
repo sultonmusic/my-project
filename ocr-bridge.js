@@ -2,7 +2,7 @@
   const frame = document.getElementById('appFrame');
   if (!frame) return;
 
-  const APP_VERSION = 'v0.0.0';
+  const APP_VERSION = 'v0.0.1';
 
   function addVersionFooter(doc){
     if (doc.getElementById('appVersionFooter')) return;
@@ -33,21 +33,74 @@
     return /(расход|питани|покуп|купил|цена|итого|руб|₽|шт|скидк|товар|чек|ранчо|шампин|халоп|food|price|total)/i.test(t);
   }
 
+  function cleanProductName(s){
+    return s
+      .replace(/\b(?:итого|скидка|вычет|полная цена|цена|кол-во|количество|шт|руб|рублей|р)\b/gi,' ')
+      .replace(/\d+[.,]\d+/g,' ')
+      .replace(/\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?/g,' ')
+      .replace(/\d+\s*(?:шт|x|х)/gi,' ')
+      .replace(/\d{2,7}\s*(?:₽|р\.?|руб(?:лей)?)/gi,' ')
+      .replace(/[=:_|]+/g,' ')
+      .replace(/\s+/g,' ')
+      .replace(/^[^A-Za-zА-Яа-яЁё]+|[^A-Za-zА-Яа-яЁё)]+$/g,'')
+      .trim();
+  }
+
   function parseFoodText(text){
-    const lines=text.split(/\r?\n/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+    const rawLines=text.split(/\r?\n/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
     const items=[];
-    for(const line of lines){
-      if(/(итог|вычет|чистая|заработ|дата|кол-во|полная цена|расход|питани)/i.test(line)) continue;
-      const money=[...line.matchAll(/(\d{2,6})\s*(?:₽|р\.?|руб)/gi)].map(m=>Number(m[1]));
-      if(!money.length) continue;
-      let name=line.replace(/\d+[.,]\d+[.,]\d+/g,'').replace(/\d+\s*(?:шт|x|х)/gi,'').replace(/\d{2,6}\s*(?:₽|р\.?|руб)/gi,'').replace(/[-=]/g,' ').trim();
-      name=name.replace(/^\d{1,2}[.\/]\d{1,2}\s*/,'').trim();
-      if(name.length<2) continue;
-      const price=Math.max(...money);
-      if(price>0) items.push({name:name.slice(0,60),price});
+
+    for(let i=0;i<rawLines.length;i++){
+      const line=rawLines[i];
+      if(/(итог|вычет|чистая|заработ|дата|кол-во|полная цена|расход|питани|наименование|что купили)/i.test(line)) continue;
+
+      const money=[...line.matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?)/gi)].map(m=>Number(m[1]));
+      let name=cleanProductName(line);
+
+      // If OCR split product name and price across neighboring lines, join them.
+      if(!money.length && name.length>=2 && i+1<rawLines.length){
+        const next=rawLines[i+1];
+        const nextMoney=[...next.matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?)/gi)].map(m=>Number(m[1]));
+        if(nextMoney.length){
+          const extra=cleanProductName(next);
+          const combined=[name,extra].filter(Boolean).join(' ').trim();
+          items.push({name:combined.slice(0,80),price:Math.max(...nextMoney)});
+          i++;
+          continue;
+        }
+      }
+
+      if(money.length){
+        // Prefer alphabetic text before the first price; useful for cards like “С Ранчо Дона 2 шт x 640₽”.
+        const firstPricePos=line.search(/\d{2,7}\s*(?:₽|р\.?|руб(?:лей)?)/i);
+        if(firstPricePos>0){
+          const before=cleanProductName(line.slice(0,firstPricePos));
+          if(before.length>=2) name=before;
+        }
+        if(name.length>=2){
+          items.push({name:name.slice(0,80),price:Math.max(...money)});
+        }
+      }
     }
+
+    // Extra heuristic for known card/list style: date on one line, product name on the next, price after that.
+    for(let i=0;i<rawLines.length-2;i++){
+      if(/^\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?$/.test(rawLines[i])){
+        const candidate=cleanProductName(rawLines[i+1]);
+        const money=[...rawLines[i+2].matchAll(/(\d{2,7})\s*(?:₽|р\.?|руб(?:лей)?)/gi)].map(m=>Number(m[1]));
+        if(candidate.length>=2 && money.length){
+          items.push({name:candidate.slice(0,80),price:Math.max(...money)});
+        }
+      }
+    }
+
     const unique=[]; const seen=new Set();
-    for(const x of items){ const k=x.name.toLowerCase()+'|'+x.price; if(!seen.has(k)){seen.add(k);unique.push(x);} }
+    for(const x of items){
+      const normalized=x.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi,' ').trim();
+      if(normalized.length<2) continue;
+      const k=normalized+'|'+x.price;
+      if(!seen.has(k)){seen.add(k);unique.push(x);}
+    }
     return unique.slice(0,12);
   }
 
@@ -80,16 +133,15 @@
         await worker.terminate();
         const text=(result.data.text||'').trim();
 
-        // MUHIM: xarid/ovqat rasmini hech qachon smena sifatida kalendarga qo‘shmaymiz.
         if(isFoodImage(text)){
           const items=parseFoodText(text);
           if(items.length){
             const today=new Date().toISOString().split('T')[0];
             const tags=items.map(x=>`[[ACTION:${JSON.stringify({type:'ADD_FOOD',date:today,name:x.name,count:1,price:x.price})}]]`).join('\n');
             const summary=items.map(x=>`${x.name} — ${x.price} ₽`).join(', ');
-            return `🧾 Rasm xarid/ovqat cheki sifatida aniqlandi. ${items.length} ta pozitsiya topildi: ${summary}.\n${tags}`;
+            return `🧾 Rasm xarid/ovqat rasmi sifatida aniqlandi. ${items.length} ta pozitsiya topildi: ${summary}.\n${tags}`;
           }
-          return `🧾 Bu rasm grafik emas, xarid/ovqat rasmi sifatida aniqlandi. OCR matni: **${text.slice(0,700)||'matn topilmadi'}**. Narx va mahsulot nomi aniq ko‘rinadigan rasm yuboring.`;
+          return `🧾 Xarid rasmi aniqlandi, lekin mahsulot nomi yoki narxini ishonchli ajrata olmadim. OCR matni: **${text.slice(0,700)||'matn topilmadi'}**`;
         }
 
         const pairs=parseScheduleText(text);
