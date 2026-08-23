@@ -7,6 +7,8 @@
   const DATA_PATH = 'data/cloud-data.json';
   const STORAGE_KEY = 'mening_oyligim_data_v7';
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+  const SAVED_TOKEN_KEY = 'salaryCloudSavedToken';
+  const SAVED_PASSWORD_KEY = 'salaryCloudSavedPassword';
 
   let token = '';
   let password = '';
@@ -172,6 +174,14 @@
       const local = readLocalData();
       connected = true;
       sessionStorage.setItem('salaryCloudToken', token);
+      const remember = document.getElementById('cloudRemember').checked;
+      if (remember) {
+        localStorage.setItem(SAVED_TOKEN_KEY, token);
+        localStorage.setItem(SAVED_PASSWORD_KEY, password);
+      } else {
+        localStorage.removeItem(SAVED_TOKEN_KEY);
+        localStorage.removeItem(SAVED_PASSWORD_KEY);
+      }
       if (remote) {
         JSON.parse(remote);
         lastSnapshot = remote;
@@ -216,7 +226,11 @@
           <input id="cloudToken" type="password" autocomplete="off" placeholder="github_pat_…" style="width:100%;padding:12px;border-radius:12px;border:1px solid #475569;background:#020617;color:#fff;outline:none">
           <label style="display:block;font-size:12px;color:#cbd5e1;margin-top:13px;margin-bottom:6px">Shifrlash paroli (kamida 8 belgi)</label>
           <input id="cloudPassword" type="password" autocomplete="off" placeholder="Faqat siz biladigan parol" style="width:100%;padding:12px;border-radius:12px;border:1px solid #475569;background:#020617;color:#fff;outline:none">
-          <div style="font-size:11px;color:#94a3b8;line-height:1.5;margin-top:10px">Parol GitHub’ga yuborilmaydi. Uni yo‘qotsangiz ma’lumotni tiklab bo‘lmaydi. Token faqat ushbu brauzer sessiyasida saqlanadi.</div>
+          <label style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12px;color:#e2e8f0;cursor:pointer">
+            <input id="cloudRemember" type="checkbox" style="width:17px;height:17px" checked>
+            <span>Shu qurilmada eslab qolish va avtomatik ulanish</span>
+          </label>
+          <div style="font-size:11px;color:#94a3b8;line-height:1.5;margin-top:10px">Parol GitHub’ga yuborilmaydi. “Eslab qolish” yoqilsa token va parol faqat shu qurilma brauzerida saqlanadi. Begona qurilmada bu tanlovni o‘chiring.</div>
           <div id="cloudSyncStatus" style="min-height:20px;font-size:12px;margin-top:12px;color:#cbd5e1"></div>
           <button id="cloudConnect" style="width:100%;margin-top:6px;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">Ulash va sinxronlash</button>
         </div>
@@ -228,8 +242,11 @@
     document.getElementById('cloudSyncModal').addEventListener('click', event => {
       if (event.target.id === 'cloudSyncModal') closeModal();
     });
-    const savedToken = sessionStorage.getItem('salaryCloudToken');
+    const savedToken = localStorage.getItem(SAVED_TOKEN_KEY) || sessionStorage.getItem('salaryCloudToken');
+    const savedPassword = localStorage.getItem(SAVED_PASSWORD_KEY);
     if (savedToken) document.getElementById('cloudToken').value = savedToken;
+    if (savedPassword) document.getElementById('cloudPassword').value = savedPassword;
+    if (savedToken && savedPassword) setTimeout(connect, 400);
   }
 
   function monitorChanges() {
