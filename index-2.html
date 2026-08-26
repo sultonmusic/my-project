@@ -749,7 +749,9 @@
             try {
                 appData = normalizeCloudData(JSON.parse(event.data.snapshot));
                 applyTheme();
+                syncSettingsToUI();
                 renderApp();
+                renderChatHistoryUI();
             } catch (error) {
                 console.error('Ошибка загрузки данных Firestore', error);
             }
@@ -1295,9 +1297,15 @@
         function resetData() {
             if (confirm("Вы действительно хотите сбросить все данные?")) {
                 appData = normalizeCloudData({
-                    settings: { currency: "₽", theme: "light" },
+                    settings: {
+                        currency: "₽", hourlyRate: 300, taxiRate: 150,
+                        splitDay: 15, advancePayDay: 25, salaryPayDay: 10,
+                        theme: "light"
+                    },
                     shifts: {}, foodExpenses: [], bonuses: [], chatHistory: []
                 });
+                syncSettingsToUI();
+                applyTheme();
                 saveToLocalStorage();
             }
         }
