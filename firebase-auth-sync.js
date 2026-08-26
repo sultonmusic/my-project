@@ -20,6 +20,7 @@ let saveTimer = null;
 let monitorTimer = null;
 let unsubscribeRemote = null;
 let writeChain = Promise.resolve();
+const pendingLocalSnapshots = new Set();
 
 const frame = () => document.getElementById('appFrame');
 const frameWindow = () => frame()?.contentWindow;
@@ -194,12 +195,18 @@ async function saveSnapshot(snapshot, force = false) {
     console.error('Размер данных превышает лимит 850 КБ.');
     return;
   }
-  await setDoc(doc(db, 'userData', currentUser.uid), {
-    snapshot,
+  pendingLocalSnapshots.add(snapshot);
+  try {
+    await setDoc(doc(db, 'userData', currentUser.uid), {
+      snapshot,
     version: DATA_VERSION,
-    updatedAt: serverTimestamp()
-  });
-  lastSnapshot = snapshot;
+      updatedAt: serverTimestamp()
+    });
+    lastSnapshot = snapshot;
+  } catch (error) {
+    pendingLocalSnapshots.delete(snapshot);
+    throw error;
+  }
 }
 
 function startRealtimeListener(user) {
@@ -207,7 +214,16 @@ function startRealtimeListener(user) {
   unsubscribeRemote = onSnapshot(doc(db, 'userData', user.uid), snapshot => {
     if (!snapshot.exists() || loadingRemote) return;
     const remote = snapshot.data().snapshot;
-    if (typeof remote !== 'string' || !remote || remote === readLocal()) return;
+    if (typeof remote !== 'string' || !remote) return;
+    if (pendingLocalSnapshots.has(remote)) {
+      pendingLocalSnapshots.delete(remote);
+      lastSnapshot = remote;
+      return;
+    }
+    if (remote === readLocal()) {
+      lastSnapshot = remote;
+      return;
+    }
     lastSnapshot = remote;
     frameWindow().localStorage.setItem(STORAGE_KEY, remote);
     frameWindow().location.reload();
