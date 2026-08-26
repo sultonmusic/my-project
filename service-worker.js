@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tyuzarplata-pwa-v4';
+const CACHE_NAME = 'tyuzarplata-pwa-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
