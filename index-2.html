@@ -794,9 +794,11 @@
 
         function toggleMainMenu() {
             const menu = document.getElementById('mainMenuDropdown');
+            if (menu.parentElement !== document.body) document.body.appendChild(menu);
             const opening = menu.classList.contains('hidden');
             menu.classList.toggle('hidden');
             document.body.style.overflow = opening ? 'hidden' : '';
+            if (opening) menu.scrollTop = 0;
         }
         function closeMainMenu() {
             document.getElementById('mainMenuDropdown').classList.add('hidden');
