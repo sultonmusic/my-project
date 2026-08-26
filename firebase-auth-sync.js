@@ -33,22 +33,22 @@ function accountEmail(value) {
   const clean = value.trim().toLowerCase();
   if (clean.includes('@')) return clean;
   if (!/^[a-z0-9._-]{3,30}$/.test(clean)) {
-    throw new Error('Username 3–30 belgi: harf, raqam, nuqta, _ yoki - ishlating.');
+    throw new Error('Имя пользователя: 3–30 символов. Допустимы буквы, цифры, точка, _ и -.');
   }
   return `${clean}@users.tyuzarplata.app`;
 }
 
 function friendlyError(error) {
   const messages = {
-    'auth/invalid-credential': 'Username/email yoki parol noto‘g‘ri.',
-    'auth/email-already-in-use': 'Bu username yoki email allaqachon ro‘yxatdan o‘tgan.',
-    'auth/weak-password': 'Parol kamida 6 belgidan iborat bo‘lsin.',
-    'auth/invalid-email': 'Username yoki email noto‘g‘ri.',
-    'auth/popup-closed-by-user': 'Google kirish oynasi yopildi.',
-    'auth/too-many-requests': 'Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring.',
-    'permission-denied': 'Firestore ruxsati rad etildi. Security Rules’ni deploy qiling.'
+    'auth/invalid-credential': 'Неверное имя пользователя, email или пароль.',
+    'auth/email-already-in-use': 'Это имя пользователя или email уже зарегистрированы.',
+    'auth/weak-password': 'Пароль должен содержать не менее 6 символов.',
+    'auth/invalid-email': 'Некорректное имя пользователя или email.',
+    'auth/popup-closed-by-user': 'Окно входа через Google было закрыто.',
+    'auth/too-many-requests': 'Слишком много попыток. Повторите позже.',
+    'permission-denied': 'Доступ к Firestore запрещён. Опубликуйте Security Rules.'
   };
-  return messages[error?.code] || error?.message || 'Noma’lum xatolik yuz berdi.';
+  return messages[error?.code] || error?.message || 'Произошла неизвестная ошибка.';
 }
 
 function setMessage(text, isError = false) {
@@ -64,31 +64,31 @@ function createUi() {
       <div style="width:min(420px,100%);background:#fff;border:1px solid #e2e8f0;border-radius:26px;padding:24px;box-shadow:0 25px 70px #0f172a24">
         <div style="display:flex;align-items:center;gap:13px;margin-bottom:20px">
           <div style="width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#2563eb;color:#fff;font-size:25px">▦</div>
-          <div><div style="font-size:23px;font-weight:850;color:#0f172a">TyuZarplata</div><div style="font-size:13px;color:#64748b">Ma’lumotlaringiz xavfsiz sinxronlanadi</div></div>
+          <div><div style="font-size:23px;font-weight:850;color:#0f172a">TyuZarplata</div><div style="font-size:13px;color:#64748b">Ваши данные безопасно синхронизируются</div></div>
         </div>
         <div style="display:flex;background:#f1f5f9;border-radius:13px;padding:4px;margin-bottom:18px">
-          <button id="loginTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:#fff;color:#0f172a;font-weight:750">Kirish</button>
-          <button id="registerTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:transparent;color:#64748b;font-weight:750">Registratsiya</button>
+          <button id="loginTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:#fff;color:#0f172a;font-weight:750">Вход</button>
+          <button id="registerTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:transparent;color:#64748b;font-weight:750">Регистрация</button>
         </div>
         <form id="authForm">
-          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Username yoki email</label>
-          <input id="authIdentity" autocomplete="username" required placeholder="masalan: sulton" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
-          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Parol</label>
-          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Kamida 6 belgi" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Имя пользователя или email</label>
+          <input id="authIdentity" autocomplete="username" required placeholder="например: sulton" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Пароль</label>
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Не менее 6 символов" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
           <div id="authMessage" style="min-height:20px;margin-top:10px;font-size:13px;line-height:1.4"></div>
-          <button id="authSubmit" type="submit" style="width:100%;padding:13px;border:0;border-radius:13px;background:#2563eb;color:#fff;font-size:15px;font-weight:800">Kirish</button>
+          <button id="authSubmit" type="submit" style="width:100%;padding:13px;border:0;border-radius:13px;background:#2563eb;color:#fff;font-size:15px;font-weight:800">Вход</button>
         </form>
-        <div style="display:flex;align-items:center;gap:10px;margin:17px 0;color:#94a3b8;font-size:12px"><span style="height:1px;background:#e2e8f0;flex:1"></span>yoki<span style="height:1px;background:#e2e8f0;flex:1"></span></div>
-        <button id="googleLogin" type="button" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#1e293b;font-size:15px;font-weight:750">G&nbsp;&nbsp;Google bilan kirish</button>
+        <div style="display:flex;align-items:center;gap:10px;margin:17px 0;color:#94a3b8;font-size:12px"><span style="height:1px;background:#e2e8f0;flex:1"></span>или<span style="height:1px;background:#e2e8f0;flex:1"></span></div>
+        <button id="googleLogin" type="button" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#1e293b;font-size:15px;font-weight:750">G&nbsp;&nbsp;Войти через Google</button>
       </div>
     </div>
     <button id="accountButton" type="button" title="Hisob" style="display:none;position:fixed;left:16px;bottom:18px;z-index:9999;width:48px;height:48px;border:0;border-radius:16px;background:#0f172a;color:#fff;font-size:20px;box-shadow:0 10px 30px #0004">👤</button>
     <div id="accountModal" style="display:none;position:fixed;inset:0;z-index:15000;align-items:center;justify-content:center;padding:18px;background:#020617aa;font-family:system-ui,sans-serif">
       <div style="width:min(380px,100%);background:#fff;border-radius:20px;padding:20px">
-        <div style="font-size:18px;font-weight:800;color:#0f172a">Hisob</div>
+        <div style="font-size:18px;font-weight:800;color:#0f172a">Аккаунт</div>
         <div id="accountName" style="margin:8px 0 18px;color:#64748b;font-size:13px;word-break:break-all"></div>
-        <button id="logoutButton" style="width:100%;padding:12px;border:0;border-radius:12px;background:#dc2626;color:#fff;font-weight:800">Chiqish</button>
-        <button id="accountClose" style="width:100%;padding:11px;border:0;background:transparent;color:#475569">Yopish</button>
+        <button id="logoutButton" style="width:100%;padding:12px;border:0;border-radius:12px;background:#dc2626;color:#fff;font-weight:800">Выйти</button>
+        <button id="accountClose" style="width:100%;padding:11px;border:0;background:transparent;color:#475569">Закрыть</button>
       </div>
     </div>`;
   document.body.appendChild(wrap);
@@ -97,12 +97,15 @@ function createUi() {
   const chooseMode = next => {
     mode = next;
     const login = next === 'login';
-    document.getElementById('authSubmit').textContent = login ? 'Kirish' : 'Ro‘yxatdan o‘tish';
+    document.getElementById('authSubmit').textContent = login ? 'Войти' : 'Зарегистрироваться';
     document.getElementById('loginTab').style.background = login ? '#fff' : 'transparent';
     document.getElementById('registerTab').style.background = login ? 'transparent' : '#fff';
     document.getElementById('loginTab').style.color = login ? '#0f172a' : '#64748b';
     document.getElementById('registerTab').style.color = login ? '#64748b' : '#0f172a';
     document.getElementById('authPassword').autocomplete = login ? 'current-password' : 'new-password';
+    document.getElementById('googleLogin').innerHTML = login
+      ? 'G&nbsp;&nbsp;Войти через Google'
+      : 'G&nbsp;&nbsp;Зарегистрироваться через Google';
     setMessage('');
   };
 
@@ -114,7 +117,7 @@ function createUi() {
     const password = document.getElementById('authPassword').value;
     const button = document.getElementById('authSubmit');
     button.disabled = true;
-    setMessage('Kutilmoqda…');
+    setMessage('Пожалуйста, подождите…');
     try {
       const email = accountEmail(identity);
       if (mode === 'register') {
@@ -131,7 +134,7 @@ function createUi() {
   };
 
   document.getElementById('googleLogin').onclick = async () => {
-    setMessage('Google ochilmoqda…');
+    setMessage('Открываем Google…');
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
@@ -178,7 +181,7 @@ async function loadAndSync(user) {
 async function saveSnapshot(snapshot) {
   if (!currentUser || loadingRemote || !snapshot || snapshot === lastSnapshot) return;
   if (new Blob([snapshot]).size > 850000) {
-    console.error('Firebase snapshot 850 KB limitdan oshdi.');
+    console.error('Размер данных превышает лимит 850 КБ.');
     return;
   }
   await setDoc(doc(db, 'userData', currentUser.uid), {
@@ -205,7 +208,7 @@ async function main() {
   showApp(false);
   try {
     const config = await fetch('/__/firebase/init.json').then(response => {
-      if (!response.ok) throw new Error('Firebase konfiguratsiyasi topilmadi.');
+      if (!response.ok) throw new Error('Конфигурация Firebase не найдена.');
       return response.json();
     });
     const app = initializeApp(config);
