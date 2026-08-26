@@ -279,9 +279,9 @@ async function main() {
       localStorage.setItem(LAST_UID_KEY, user.uid);
       const appFrame = frame();
       const sync = async () => {
-        await loadAndSync(user);
-        startRealtimeListener(user);
         showApp(true);
+        startRealtimeListener(user);
+        await loadAndSync(user);
       };
       if (appFrame.contentWindow?.document?.readyState === 'complete') await sync();
       else appFrame.addEventListener('load', sync, { once: true });
