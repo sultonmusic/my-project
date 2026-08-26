@@ -77,9 +77,9 @@
 
     const menuButton = d.createElement('button');
     menuButton.id = 'sickLeaveMenuButton';
-    menuButton.className = 'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/30';
-    const resetButton = [...menu.querySelectorAll('button')].find(button => button.textContent.includes('Сбросить данные'));
-    menu.insertBefore(menuButton, resetButton || null);
+    menuButton.className = 'min-h-28 flex flex-col items-start justify-between p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900 shadow-sm';
+    const servicesGrid = d.getElementById('menuServicesGrid') || menu;
+    servicesGrid.appendChild(menuButton);
 
     const page = d.createElement('section');
     page.id = 'sickLeavePage';
