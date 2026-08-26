@@ -183,7 +183,7 @@
         </section>
 
         <!-- 2. Календарь -->
-        <section class="bg-white dark:bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm dark:shadow-xl transition-colors">
+        <section id="calendarSection" class="bg-white dark:bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm dark:shadow-xl transition-colors">
             <div class="flex justify-between items-center mb-4">
                 <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 transition active:scale-95 border border-slate-200 dark:border-slate-700/50">
                     <i class="fa-solid fa-chevron-left text-xs"></i>
@@ -691,6 +691,7 @@
 
             renderApp();
             renderChatHistoryUI();
+            initCalendarSwipe();
         };
 
         function toggleMainMenu() { document.getElementById('mainMenuDropdown').classList.toggle('hidden'); }
@@ -897,6 +898,30 @@
         function changeMonth(direction) {
             currentDate.setMonth(currentDate.getMonth() + direction);
             renderApp();
+        }
+
+        function initCalendarSwipe() {
+            const calendar = document.getElementById('calendarSection');
+            if (!calendar || calendar.dataset.swipeReady) return;
+            calendar.dataset.swipeReady = 'true';
+            calendar.style.touchAction = 'pan-y';
+
+            let startX = 0;
+            let startY = 0;
+
+            calendar.addEventListener('touchstart', event => {
+                const touch = event.changedTouches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+            }, { passive: true });
+
+            calendar.addEventListener('touchend', event => {
+                const touch = event.changedTouches[0];
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+                if (Math.abs(deltaX) < 55 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
+                changeMonth(deltaX < 0 ? 1 : -1);
+            }, { passive: true });
         }
 
         function openDayModal(dateKey, dayNumber) {
