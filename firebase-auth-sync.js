@@ -5,7 +5,7 @@ import {
   GoogleAuthProvider, signInWithPopup, updateProfile, signOut
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
-  getFirestore, doc, getDoc, setDoc, serverTimestamp
+  getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 const STORAGE_KEY = 'mening_oyligim_data_v7';
@@ -18,6 +18,8 @@ let lastSnapshot = '';
 let loadingRemote = false;
 let saveTimer = null;
 let monitorTimer = null;
+let unsubscribeRemote = null;
+let writeChain = Promise.resolve();
 
 const frame = () => document.getElementById('appFrame');
 const frameWindow = () => frame()?.contentWindow;
@@ -200,6 +202,24 @@ async function saveSnapshot(snapshot, force = false) {
   lastSnapshot = snapshot;
 }
 
+function startRealtimeListener(user) {
+  if (unsubscribeRemote) unsubscribeRemote();
+  unsubscribeRemote = onSnapshot(doc(db, 'userData', user.uid), snapshot => {
+    if (!snapshot.exists() || loadingRemote) return;
+    const remote = snapshot.data().snapshot;
+    if (typeof remote !== 'string' || !remote || remote === readLocal()) return;
+    lastSnapshot = remote;
+    frameWindow().localStorage.setItem(STORAGE_KEY, remote);
+    frameWindow().location.reload();
+  }, error => console.error(friendlyError(error)));
+}
+
+function queueImmediateSave(snapshot) {
+  writeChain = writeChain
+    .then(() => saveSnapshot(snapshot))
+    .catch(error => console.error(friendlyError(error)));
+}
+
 function startMonitor() {
   clearInterval(monitorTimer);
   monitorTimer = setInterval(() => {
@@ -223,10 +243,18 @@ async function main() {
     auth = getAuth(app);
     db = getFirestore(app);
     await setPersistence(auth, browserLocalPersistence);
+    window.addEventListener('message', event => {
+      if (event.origin !== location.origin || event.source !== frameWindow()) return;
+      if (event.data?.type !== 'TYU_DATA_CHANGED' || typeof event.data.snapshot !== 'string') return;
+      if (!currentUser || loadingRemote) return;
+      queueImmediateSave(event.data.snapshot);
+    });
     onAuthStateChanged(auth, async user => {
       currentUser = user;
       if (!user) {
         clearInterval(monitorTimer);
+        if (unsubscribeRemote) unsubscribeRemote();
+        unsubscribeRemote = null;
         showApp(false);
         document.getElementById('authLoading').style.display = 'none';
         document.getElementById('authCard').style.display = 'block';
@@ -242,6 +270,7 @@ async function main() {
       const appFrame = frame();
       const sync = async () => {
         await loadAndSync(user);
+        startRealtimeListener(user);
         startMonitor();
       };
       if (appFrame.contentWindow?.document?.readyState === 'complete') await sync();
