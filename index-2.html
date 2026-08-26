@@ -723,26 +723,37 @@
             }
         }
 
+        function normalizeCloudData(data) {
+            if (!data.settings) data.settings = {};
+            if (!data.settings.currency) data.settings.currency = "₽";
+            if (!data.settings.theme) data.settings.theme = "light";
+            if (!data.chatHistory) data.chatHistory = [];
+            if (!data.shifts) data.shifts = {};
+            if (!data.foodExpenses) data.foodExpenses = [];
+            if (!data.bonuses) data.bonuses = [];
+            return data;
+        }
+
         function loadFromLocalStorage() {
-            const saved = localStorage.getItem('mening_oyligim_data_v7');
-            if (saved) {
-                try {
-                    appData = JSON.parse(saved);
-                    if (!appData.settings.currency) appData.settings.currency = "₽";
-                    if (!appData.settings.theme) appData.settings.theme = "light";
-                    if (!appData.chatHistory) appData.chatHistory = [];
-                } catch(e) {
-                    console.error("Error loading data", e);
-                }
-            }
+            // Firestore-first: data is delivered by the authenticated parent page.
         }
 
         function saveToLocalStorage() {
             const snapshot = JSON.stringify(appData);
-            localStorage.setItem('mening_oyligim_data_v7', snapshot);
             window.parent.postMessage({ type: 'TYU_DATA_CHANGED', snapshot }, location.origin);
             renderApp();
         }
+
+        window.addEventListener('message', event => {
+            if (event.origin !== location.origin || event.data?.type !== 'TYU_LOAD_DATA') return;
+            try {
+                appData = normalizeCloudData(JSON.parse(event.data.snapshot));
+                applyTheme();
+                renderApp();
+            } catch (error) {
+                console.error('Ошибка загрузки данных Firestore', error);
+            }
+        });
 
         function cleanOldChatHistory() {
             const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
@@ -1283,8 +1294,11 @@
 
         function resetData() {
             if (confirm("Вы действительно хотите сбросить все данные?")) {
-                localStorage.removeItem('mening_oyligim_data_v7');
-                location.reload();
+                appData = normalizeCloudData({
+                    settings: { currency: "₽", theme: "light" },
+                    shifts: {}, foodExpenses: [], bonuses: [], chatHistory: []
+                });
+                saveToLocalStorage();
             }
         }
 
