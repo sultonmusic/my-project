@@ -26,7 +26,7 @@ const showApp = visible => {
   const appFrame = frame();
   if (appFrame) appFrame.style.visibility = visible ? 'visible' : 'hidden';
   document.getElementById('authGate').style.display = visible ? 'none' : 'flex';
-  document.getElementById('accountButton').style.display = visible ? 'block' : 'none';
+  document.getElementById('accountButton').style.display = 'none';
 };
 
 function accountEmail(value) {
@@ -61,7 +61,8 @@ function createUi() {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
     <div id="authGate" style="position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(145deg,#eff6ff,#f8fafc 55%,#ecfdf5);font-family:system-ui,sans-serif">
-      <div style="width:min(420px,100%);background:#fff;border:1px solid #e2e8f0;border-radius:26px;padding:24px;box-shadow:0 25px 70px #0f172a24">
+      <div id="authLoading" style="display:flex;flex-direction:column;align-items:center;gap:14px;color:#475569;font-weight:700"><div style="width:42px;height:42px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:tyuSpin .8s linear infinite"></div><span>Загрузка…</span></div>
+      <div id="authCard" style="display:none;width:min(420px,100%);background:#fff;border:1px solid #e2e8f0;border-radius:26px;padding:24px;box-shadow:0 25px 70px #0f172a24">
         <div style="display:flex;align-items:center;gap:13px;margin-bottom:20px">
           <div style="width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#2563eb;color:#fff;font-size:25px">▦</div>
           <div><div style="font-size:23px;font-weight:850;color:#0f172a">TyuZarplata</div><div style="font-size:13px;color:#64748b">Ваши данные безопасно синхронизируются</div></div>
@@ -72,9 +73,9 @@ function createUi() {
         </div>
         <form id="authForm">
           <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Имя пользователя или email</label>
-          <input id="authIdentity" autocomplete="username" required placeholder="например: sulton" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <input id="authIdentity" autocomplete="username" required placeholder="username" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
           <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Пароль</label>
-          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Не менее 6 символов" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <div style="position:relative"><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Не менее 6 символов" style="width:100%;padding:13px 52px 13px 13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none"><button id="togglePassword" type="button" aria-label="Показать пароль" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:42px;height:42px;border:0;background:transparent;font-size:20px;cursor:pointer">👁</button></div>
           <div id="authMessage" style="min-height:20px;margin-top:10px;font-size:13px;line-height:1.4"></div>
           <button id="authSubmit" type="submit" style="width:100%;padding:13px;border:0;border-radius:13px;background:#2563eb;color:#fff;font-size:15px;font-weight:800">Вход</button>
         </form>
@@ -109,6 +110,12 @@ function createUi() {
     setMessage('');
   };
 
+  document.getElementById('togglePassword').onclick = () => {
+    const input = document.getElementById('authPassword');
+    const visible = input.type === 'text';
+    input.type = visible ? 'password' : 'text';
+    document.getElementById('togglePassword').textContent = visible ? '👁' : '🙈';
+  };
   document.getElementById('loginTab').onclick = () => chooseMode('login');
   document.getElementById('registerTab').onclick = () => chooseMode('register');
   document.getElementById('authForm').onsubmit = async event => {
@@ -141,10 +148,11 @@ function createUi() {
       setMessage(friendlyError(error), true);
     }
   };
-  document.getElementById('accountButton').onclick = () => {
+  window.openAccountModal = () => {
     document.getElementById('accountName').textContent = currentUser?.displayName || currentUser?.email || '';
     document.getElementById('accountModal').style.display = 'flex';
   };
+  document.getElementById('accountButton').onclick = window.openAccountModal;
   document.getElementById('accountClose').onclick = () => document.getElementById('accountModal').style.display = 'none';
   document.getElementById('logoutButton').onclick = async () => {
     document.getElementById('accountModal').style.display = 'none';
@@ -168,7 +176,7 @@ async function loadAndSync(user) {
         lastSnapshot = local;
       }
     } else if (local) {
-      await saveSnapshot(local);
+      await saveSnapshot(local, true);
     }
   } catch (error) {
     console.error(error);
@@ -178,8 +186,8 @@ async function loadAndSync(user) {
   }
 }
 
-async function saveSnapshot(snapshot) {
-  if (!currentUser || loadingRemote || !snapshot || snapshot === lastSnapshot) return;
+async function saveSnapshot(snapshot, force = false) {
+  if (!currentUser || (!force && loadingRemote) || !snapshot || (!force && snapshot === lastSnapshot)) return;
   if (new Blob([snapshot]).size > 850000) {
     console.error('Размер данных превышает лимит 850 КБ.');
     return;
@@ -220,6 +228,8 @@ async function main() {
       if (!user) {
         clearInterval(monitorTimer);
         showApp(false);
+        document.getElementById('authLoading').style.display = 'none';
+        document.getElementById('authCard').style.display = 'block';
         return;
       }
       const previousUid = localStorage.getItem(LAST_UID_KEY);
@@ -238,8 +248,13 @@ async function main() {
       else appFrame.addEventListener('load', sync, { once: true });
     });
   } catch (error) {
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('authCard').style.display = 'block';
     setMessage(friendlyError(error), true);
   }
 }
 
+const authStyle = document.createElement('style');
+authStyle.textContent = '@keyframes tyuSpin{to{transform:rotate(360deg)}}';
+document.head.appendChild(authStyle);
 window.addEventListener('DOMContentLoaded', main);
