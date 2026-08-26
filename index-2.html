@@ -90,8 +90,8 @@
             </div>
             
             <div class="relative">
-                <button onclick="window.parent.openInstallPrompt?.()" aria-label="Установить приложение" title="Установить приложение" class="absolute right-12 top-0 w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center border border-blue-500 shadow-lg shadow-blue-500/25 transition active:scale-95">
-                    <i class="fa-solid fa-download"></i>
+                <button id="installOrRefreshButton" onclick="handleInstallOrRefresh()" aria-label="Установить приложение" title="Установить приложение" class="absolute right-12 top-0 w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center border border-blue-500 shadow-lg shadow-blue-500/25 transition active:scale-95">
+                    <i id="installOrRefreshIcon" class="fa-solid fa-download"></i>
                 </button>
                 <button onclick="toggleMainMenu()" aria-label="Меню" class="w-10 h-10 bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl flex items-center justify-center border border-slate-300 dark:border-slate-700 transition active:scale-95">
                     <i class="fa-solid fa-bars"></i>
@@ -695,7 +695,33 @@
             renderApp();
             renderChatHistoryUI();
             initCalendarSwipe();
+            configureInstallOrRefreshButton();
         };
+
+        function isInstalledPwa() {
+            return window.parent.matchMedia('(display-mode: standalone)').matches ||
+                window.parent.navigator.standalone === true;
+        }
+
+        function configureInstallOrRefreshButton() {
+            const button = document.getElementById('installOrRefreshButton');
+            const icon = document.getElementById('installOrRefreshIcon');
+            if (!button || !icon) return;
+            if (isInstalledPwa()) {
+                button.title = 'Обновить';
+                button.setAttribute('aria-label', 'Обновить');
+                icon.className = 'fa-solid fa-rotate-right';
+            } else {
+                button.title = 'Установить приложение';
+                button.setAttribute('aria-label', 'Установить приложение');
+                icon.className = 'fa-solid fa-download';
+            }
+        }
+
+        function handleInstallOrRefresh() {
+            if (isInstalledPwa()) window.parent.refreshInstalledApp?.();
+            else window.parent.openInstallPrompt?.();
+        }
 
         function toggleMainMenu() { document.getElementById('mainMenuDropdown').classList.toggle('hidden'); }
         function closeMainMenu() { document.getElementById('mainMenuDropdown').classList.add('hidden'); }
