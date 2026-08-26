@@ -10,6 +10,7 @@ import {
 
 const STORAGE_KEY = 'mening_oyligim_data_v7';
 const DATA_VERSION = 1;
+const LAST_UID_KEY = 'tyuzarplata_last_uid';
 let auth;
 let db;
 let currentUser = null;
@@ -218,6 +219,12 @@ async function main() {
         showApp(false);
         return;
       }
+      const previousUid = localStorage.getItem(LAST_UID_KEY);
+      if (previousUid && previousUid !== user.uid) {
+        frameWindow()?.localStorage.removeItem(STORAGE_KEY);
+        lastSnapshot = '';
+      }
+      localStorage.setItem(LAST_UID_KEY, user.uid);
       showApp(true);
       const appFrame = frame();
       const sync = async () => {
