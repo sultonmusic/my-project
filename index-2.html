@@ -96,13 +96,37 @@
                 <button onclick="toggleMainMenu()" aria-label="Меню" class="w-10 h-10 bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl flex items-center justify-center border border-slate-300 dark:border-slate-700 transition active:scale-95">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                <div id="mainMenuDropdown" class="hidden absolute right-0 top-12 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl p-2 z-50">
-                    <button onclick="menuAction('settings')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-blue-50 dark:hover:bg-blue-950/40"><i class="fa-solid fa-sliders w-5 text-blue-500"></i><span class="text-sm font-semibold">Параметры и Валюта</span></button>
-                    <button onclick="menuAction('pdf')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-file-pdf w-5 text-emerald-500"></i><span class="text-sm font-semibold">Скачать PDF</span></button>
-                    <button onclick="menuAction('theme')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-circle-half-stroke w-5 text-amber-500"></i><span class="text-sm font-semibold">Сменить тему</span></button>
-                    <button onclick="menuAction('ai')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-robot w-5 text-indigo-500"></i><span class="text-sm font-semibold">AI Ассистент</span></button>
-                    <button onclick="window.parent.openAccountModal?.(); toggleMainMenu()" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-blue-50 dark:hover:bg-blue-950/40"><i class="fa-solid fa-user w-5 text-blue-500"></i><span class="text-sm font-semibold">Аккаунт</span></button>
-                    <button onclick="menuAction('reset')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-rose-50 dark:hover:bg-rose-950/30"><i class="fa-solid fa-rotate-right w-5 text-rose-500"></i><span class="text-sm font-semibold">Сбросить данные</span></button>
+                <div id="mainMenuDropdown" class="hidden fixed inset-0 z-[90] bg-slate-100 dark:bg-slate-950 overflow-y-auto">
+                    <div class="max-w-md mx-auto min-h-full px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+                        <div class="sticky top-0 z-10 -mx-4 px-4 py-3 flex items-center justify-between bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+                            <div><p class="text-xs font-bold uppercase tracking-widest text-blue-600">TyuZarplata</p><h2 class="text-2xl font-black text-slate-900 dark:text-white">Меню</h2></div>
+                            <button onclick="closeMainMenu()" aria-label="Закрыть меню" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xl"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="mt-5 space-y-6">
+                            <section>
+                                <h3 class="mb-2 px-1 text-xs font-extrabold tracking-widest text-slate-400">НАСТРОЙКИ</h3>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button onclick="menuAction('settings')" class="min-h-28 flex flex-col items-start justify-between p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm"><i class="fa-solid fa-sliders text-2xl text-blue-500"></i><span class="font-bold">Параметры<br>и валюта</span></button>
+                                    <button onclick="menuAction('theme')" class="min-h-28 flex flex-col items-start justify-between p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm"><i class="fa-solid fa-circle-half-stroke text-2xl text-amber-500"></i><span class="font-bold">Сменить<br>тему</span></button>
+                                </div>
+                            </section>
+                            <section>
+                                <h3 class="mb-2 px-1 text-xs font-extrabold tracking-widest text-slate-400">СЕРВИСЫ</h3>
+                                <div id="menuServicesGrid" class="grid grid-cols-2 gap-3">
+                                    <button onclick="menuAction('pdf')" class="min-h-28 flex flex-col items-start justify-between p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm"><i class="fa-solid fa-file-pdf text-2xl text-emerald-500"></i><span class="font-bold">Скачать PDF</span></button>
+                                    <button onclick="menuAction('ai')" class="min-h-28 flex flex-col items-start justify-between p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm"><i class="fa-solid fa-robot text-2xl text-indigo-500"></i><span class="font-bold">AI Ассистент</span></button>
+                                </div>
+                            </section>
+                            <section>
+                                <h3 class="mb-2 px-1 text-xs font-extrabold tracking-widest text-slate-400">ПРОФИЛЬ</h3>
+                                <button onclick="window.parent.openAccountModal?.(); closeMainMenu()" class="w-full flex items-center gap-4 p-4 rounded-2xl text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm"><span class="w-11 h-11 grid place-items-center rounded-xl bg-blue-50 dark:bg-blue-950/40"><i class="fa-solid fa-user text-blue-500"></i></span><span><b class="block">Аккаунт</b><small class="text-slate-500">Профиль и выход из системы</small></span><i class="fa-solid fa-chevron-right ml-auto text-slate-400"></i></button>
+                            </section>
+                            <section>
+                                <h3 class="mb-2 px-1 text-xs font-extrabold tracking-widest text-slate-400">ДАННЫЕ</h3>
+                                <button onclick="menuAction('reset')" class="w-full flex items-center gap-4 p-4 rounded-2xl text-left bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900"><span class="w-11 h-11 grid place-items-center rounded-xl bg-rose-100 dark:bg-rose-950"><i class="fa-solid fa-rotate-right text-rose-500"></i></span><span><b class="block text-rose-600 dark:text-rose-400">Сбросить данные</b><small class="text-rose-500/80">Удалить введённую информацию</small></span></button>
+                            </section>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -768,8 +792,16 @@
             }, { passive: true });
         }
 
-        function toggleMainMenu() { document.getElementById('mainMenuDropdown').classList.toggle('hidden'); }
-        function closeMainMenu() { document.getElementById('mainMenuDropdown').classList.add('hidden'); }
+        function toggleMainMenu() {
+            const menu = document.getElementById('mainMenuDropdown');
+            const opening = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden');
+            document.body.style.overflow = opening ? 'hidden' : '';
+        }
+        function closeMainMenu() {
+            document.getElementById('mainMenuDropdown').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
         function openSettingsPanel() { closeMainMenu(); document.getElementById('settingsPanel').classList.remove('hidden'); document.body.style.overflow='hidden'; }
         function closeSettingsPanel() { document.getElementById('settingsPanel').classList.add('hidden'); document.body.style.overflow=''; }
         function menuAction(action) {
