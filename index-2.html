@@ -695,6 +695,7 @@
             renderApp();
             renderChatHistoryUI();
             initCalendarSwipe();
+            initPullToRefresh();
             configureInstallOrRefreshButton();
         };
 
@@ -708,9 +709,7 @@
             const icon = document.getElementById('installOrRefreshIcon');
             if (!button || !icon) return;
             if (isInstalledPwa()) {
-                button.title = 'Обновить';
-                button.setAttribute('aria-label', 'Обновить');
-                icon.className = 'fa-solid fa-rotate-right';
+                button.classList.add('hidden');
             } else {
                 button.title = 'Установить приложение';
                 button.setAttribute('aria-label', 'Установить приложение');
@@ -721,6 +720,52 @@
         function handleInstallOrRefresh() {
             if (isInstalledPwa()) window.parent.refreshInstalledApp?.();
             else window.parent.openInstallPrompt?.();
+        }
+
+        function initPullToRefresh() {
+            if (document.getElementById('pullRefreshIndicator')) return;
+
+            const indicator = document.createElement('div');
+            indicator.id = 'pullRefreshIndicator';
+            indicator.className = 'fixed top-3 left-1/2 -translate-x-1/2 z-[100] w-10 h-10 rounded-full bg-blue-600 text-white shadow-xl hidden items-center justify-center';
+            indicator.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
+            document.body.appendChild(indicator);
+
+            let startY = 0;
+            let distance = 0;
+            let canPull = false;
+
+            document.addEventListener('touchstart', event => {
+                canPull = document.scrollingElement.scrollTop <= 0;
+                if (!canPull) return;
+                startY = event.touches[0].clientY;
+                distance = 0;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', event => {
+                if (!canPull) return;
+                distance = event.touches[0].clientY - startY;
+                if (distance <= 18) {
+                    indicator.classList.add('hidden');
+                    indicator.classList.remove('flex');
+                    return;
+                }
+                indicator.classList.remove('hidden');
+                indicator.classList.add('flex');
+                const progress = Math.min(distance / 90, 1);
+                indicator.style.transform = `translateX(-50%) translateY(${Math.min(distance * 0.35, 36)}px) rotate(${progress * 240}deg)`;
+                indicator.style.opacity = String(Math.max(.35, progress));
+            }, { passive: true });
+
+            document.addEventListener('touchend', () => {
+                if (!canPull) return;
+                canPull = false;
+                indicator.classList.add('hidden');
+                indicator.classList.remove('flex');
+                indicator.style.transform = '';
+                indicator.style.opacity = '';
+                if (distance >= 90) window.parent.refreshInstalledApp?.();
+            }, { passive: true });
         }
 
         function toggleMainMenu() { document.getElementById('mainMenuDropdown').classList.toggle('hidden'); }
