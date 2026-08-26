@@ -15,6 +15,7 @@ let auth;
 let db;
 let currentUser = null;
 let lastSnapshot = '';
+let currentSnapshot = '';
 let loadingRemote = false;
 let saveTimer = null;
 let monitorTimer = null;
@@ -24,7 +25,11 @@ const pendingLocalSnapshots = new Set();
 
 const frame = () => document.getElementById('appFrame');
 const frameWindow = () => frame()?.contentWindow;
-const readLocal = () => frameWindow()?.localStorage.getItem(STORAGE_KEY) || '';
+const readLegacyLocal = () => frameWindow()?.localStorage.getItem(STORAGE_KEY) || '';
+const sendSnapshotToApp = snapshot => {
+  if (!snapshot || !frameWindow()) return;
+  frameWindow().postMessage({ type: 'TYU_LOAD_DATA', snapshot }, location.origin);
+};
 const showApp = visible => {
   const appFrame = frame();
   if (appFrame) appFrame.style.visibility = visible ? 'visible' : 'hidden';
@@ -168,18 +173,20 @@ async function loadAndSync(user) {
   const ref = doc(db, 'userData', user.uid);
   try {
     const remote = await getDoc(ref);
-    const local = readLocal();
-    if (remote.exists() && typeof remote.data().snapshot === 'string') {
-      const snapshot = remote.data().snapshot;
-      if (snapshot && snapshot !== local) {
-        frameWindow().localStorage.setItem(STORAGE_KEY, snapshot);
-        lastSnapshot = snapshot;
-        frameWindow().location.reload();
-      } else {
-        lastSnapshot = local;
-      }
-    } else if (local) {
-      await saveSnapshot(local, true);
+    if (remote.exists() && typeof remote.data().snapshot === 'string' && remote.data().snapshot) {
+      currentSnapshot = remote.data().snapshot;
+      lastSnapshot = currentSnapshot;
+      sendSnapshotToApp(currentSnapshot);
+      return;
+    }
+
+    // One-time migration of data created by older localStorage versions.
+    const legacy = readLegacyLocal();
+    if (legacy) {
+      await saveSnapshot(legacy, true);
+      currentSnapshot = legacy;
+      sendSnapshotToApp(legacy);
+      frameWindow().localStorage.removeItem(STORAGE_KEY);
     }
   } catch (error) {
     console.error(error);
@@ -188,9 +195,8 @@ async function loadAndSync(user) {
     loadingRemote = false;
   }
 }
-
 async function saveSnapshot(snapshot, force = false) {
-  if (!currentUser || (!force && loadingRemote) || !snapshot || (!force && snapshot === lastSnapshot)) return;
+  if (!currentUser || (!force && loadingRemote) || !snapshot || (!force && snapshot === currentSnapshot)) return;
   if (new Blob([snapshot]).size > 850000) {
     console.error('Размер данных превышает лимит 850 КБ.');
     return;
@@ -202,6 +208,7 @@ async function saveSnapshot(snapshot, force = false) {
     version: DATA_VERSION,
       updatedAt: serverTimestamp()
     });
+    currentSnapshot = snapshot;
     lastSnapshot = snapshot;
   } catch (error) {
     pendingLocalSnapshots.delete(snapshot);
@@ -217,36 +224,23 @@ function startRealtimeListener(user) {
     if (typeof remote !== 'string' || !remote) return;
     if (pendingLocalSnapshots.has(remote)) {
       pendingLocalSnapshots.delete(remote);
+      currentSnapshot = remote;
       lastSnapshot = remote;
       return;
     }
-    if (remote === readLocal()) {
-      lastSnapshot = remote;
-      return;
-    }
+    if (remote === currentSnapshot) return;
+    currentSnapshot = remote;
     lastSnapshot = remote;
-    frameWindow().localStorage.setItem(STORAGE_KEY, remote);
-    frameWindow().location.reload();
+    sendSnapshotToApp(remote);
   }, error => console.error(friendlyError(error)));
 }
-
 function queueImmediateSave(snapshot) {
   writeChain = writeChain
     .then(() => saveSnapshot(snapshot))
     .catch(error => console.error(friendlyError(error)));
 }
 
-function startMonitor() {
-  clearInterval(monitorTimer);
-  monitorTimer = setInterval(() => {
-    if (!currentUser || loadingRemote) return;
-    const snapshot = readLocal();
-    if (!snapshot || snapshot === lastSnapshot) return;
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveSnapshot(snapshot).catch(error => console.error(friendlyError(error))), 1800);
-  }, 1000);
-}
-
+function startMonitor() {}
 async function main() {
   createUi();
   showApp(false);
@@ -279,15 +273,15 @@ async function main() {
       const previousUid = localStorage.getItem(LAST_UID_KEY);
       if (previousUid && previousUid !== user.uid) {
         frameWindow()?.localStorage.removeItem(STORAGE_KEY);
+        currentSnapshot = '';
         lastSnapshot = '';
       }
       localStorage.setItem(LAST_UID_KEY, user.uid);
-      showApp(true);
       const appFrame = frame();
       const sync = async () => {
         await loadAndSync(user);
         startRealtimeListener(user);
-        startMonitor();
+        showApp(true);
       };
       if (appFrame.contentWindow?.document?.readyState === 'complete') await sync();
       else appFrame.addEventListener('load', sync, { once: true });
