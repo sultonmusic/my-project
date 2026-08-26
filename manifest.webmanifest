@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "TyuZarplata — Моя Зарплата",
+  "short_name": "TyuZarplata",
+  "description": "Учёт смен, зарплаты, расходов и выплат",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
