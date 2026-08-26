@@ -82,7 +82,7 @@ function createUi() {
         <button id="googleLogin" type="button" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#1e293b;font-size:15px;font-weight:750">G&nbsp;&nbsp;Войти через Google</button>
       </div>
     </div>
-    <button id="accountButton" type="button" title="Hisob" style="display:none;position:fixed;left:16px;bottom:18px;z-index:9999;width:48px;height:48px;border:0;border-radius:16px;background:#0f172a;color:#fff;font-size:20px;box-shadow:0 10px 30px #0004">👤</button>
+    <button id="accountButton" type="button" title="Аккаунт" style="display:none;position:fixed;left:16px;bottom:18px;z-index:9999;width:48px;height:48px;border:0;border-radius:16px;background:#0f172a;color:#fff;font-size:20px;box-shadow:0 10px 30px #0004">👤</button>
     <div id="accountModal" style="display:none;position:fixed;inset:0;z-index:15000;align-items:center;justify-content:center;padding:18px;background:#020617aa;font-family:system-ui,sans-serif">
       <div style="width:min(380px,100%);background:#fff;border-radius:20px;padding:20px">
         <div style="font-size:18px;font-weight:800;color:#0f172a">Аккаунт</div>
