@@ -738,7 +738,9 @@
         }
 
         function saveToLocalStorage() {
-            localStorage.setItem('mening_oyligim_data_v7', JSON.stringify(appData));
+            const snapshot = JSON.stringify(appData);
+            localStorage.setItem('mening_oyligim_data_v7', snapshot);
+            window.parent.postMessage({ type: 'TYU_DATA_CHANGED', snapshot }, location.origin);
             renderApp();
         }
 
