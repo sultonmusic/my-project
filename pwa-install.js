@@ -52,6 +52,18 @@ window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
 });
 
+window.refreshInstalledApp = async () => {
+  const button = document.getElementById('installOrRefreshButton');
+  if (button) button.disabled = true;
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration) await registration.update();
+  } catch (error) {
+    console.error(error);
+  }
+  window.location.reload();
+};
+
 window.openInstallPrompt = async () => {
   if (isStandalone()) {
     alert('TyuZarplata уже открыта как установленное приложение.');
