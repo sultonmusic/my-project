@@ -806,6 +806,7 @@
             if (!data.shifts) data.shifts = {};
             if (!data.foodExpenses) data.foodExpenses = [];
             if (!data.bonuses) data.bonuses = [];
+            if (!data.sickLeaves) data.sickLeaves = [];
             return data;
         }
 
@@ -1401,7 +1402,7 @@
                         splitDay: 15, advancePayDay: 25, salaryPayDay: 10,
                         theme: "light"
                     },
-                    shifts: {}, foodExpenses: [], bonuses: [], chatHistory: []
+                    shifts: {}, foodExpenses: [], bonuses: [], chatHistory: [], sickLeaves: []
                 });
                 syncSettingsToUI();
                 applyTheme();
