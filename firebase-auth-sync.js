@@ -1,0 +1,235 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
+import {
+  getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  GoogleAuthProvider, signInWithPopup, updateProfile, signOut
+} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
+import {
+  getFirestore, doc, getDoc, setDoc, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+
+const STORAGE_KEY = 'mening_oyligim_data_v7';
+const DATA_VERSION = 1;
+let auth;
+let db;
+let currentUser = null;
+let lastSnapshot = '';
+let loadingRemote = false;
+let saveTimer = null;
+let monitorTimer = null;
+
+const frame = () => document.getElementById('appFrame');
+const frameWindow = () => frame()?.contentWindow;
+const readLocal = () => frameWindow()?.localStorage.getItem(STORAGE_KEY) || '';
+const showApp = visible => {
+  const appFrame = frame();
+  if (appFrame) appFrame.style.visibility = visible ? 'visible' : 'hidden';
+  document.getElementById('authGate').style.display = visible ? 'none' : 'flex';
+  document.getElementById('accountButton').style.display = visible ? 'block' : 'none';
+};
+
+function accountEmail(value) {
+  const clean = value.trim().toLowerCase();
+  if (clean.includes('@')) return clean;
+  if (!/^[a-z0-9._-]{3,30}$/.test(clean)) {
+    throw new Error('Username 3–30 belgi: harf, raqam, nuqta, _ yoki - ishlating.');
+  }
+  return `${clean}@users.tyuzarplata.app`;
+}
+
+function friendlyError(error) {
+  const messages = {
+    'auth/invalid-credential': 'Username/email yoki parol noto‘g‘ri.',
+    'auth/email-already-in-use': 'Bu username yoki email allaqachon ro‘yxatdan o‘tgan.',
+    'auth/weak-password': 'Parol kamida 6 belgidan iborat bo‘lsin.',
+    'auth/invalid-email': 'Username yoki email noto‘g‘ri.',
+    'auth/popup-closed-by-user': 'Google kirish oynasi yopildi.',
+    'auth/too-many-requests': 'Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring.',
+    'permission-denied': 'Firestore ruxsati rad etildi. Security Rules’ni deploy qiling.'
+  };
+  return messages[error?.code] || error?.message || 'Noma’lum xatolik yuz berdi.';
+}
+
+function setMessage(text, isError = false) {
+  const el = document.getElementById('authMessage');
+  el.textContent = text;
+  el.style.color = isError ? '#dc2626' : '#047857';
+}
+
+function createUi() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div id="authGate" style="position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(145deg,#eff6ff,#f8fafc 55%,#ecfdf5);font-family:system-ui,sans-serif">
+      <div style="width:min(420px,100%);background:#fff;border:1px solid #e2e8f0;border-radius:26px;padding:24px;box-shadow:0 25px 70px #0f172a24">
+        <div style="display:flex;align-items:center;gap:13px;margin-bottom:20px">
+          <div style="width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#2563eb;color:#fff;font-size:25px">▦</div>
+          <div><div style="font-size:23px;font-weight:850;color:#0f172a">TyuZarplata</div><div style="font-size:13px;color:#64748b">Ma’lumotlaringiz xavfsiz sinxronlanadi</div></div>
+        </div>
+        <div style="display:flex;background:#f1f5f9;border-radius:13px;padding:4px;margin-bottom:18px">
+          <button id="loginTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:#fff;color:#0f172a;font-weight:750">Kirish</button>
+          <button id="registerTab" type="button" style="flex:1;padding:10px;border:0;border-radius:10px;background:transparent;color:#64748b;font-weight:750">Registratsiya</button>
+        </div>
+        <form id="authForm">
+          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Username yoki email</label>
+          <input id="authIdentity" autocomplete="username" required placeholder="masalan: sulton" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Parol</label>
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Kamida 6 belgi" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <div id="authMessage" style="min-height:20px;margin-top:10px;font-size:13px;line-height:1.4"></div>
+          <button id="authSubmit" type="submit" style="width:100%;padding:13px;border:0;border-radius:13px;background:#2563eb;color:#fff;font-size:15px;font-weight:800">Kirish</button>
+        </form>
+        <div style="display:flex;align-items:center;gap:10px;margin:17px 0;color:#94a3b8;font-size:12px"><span style="height:1px;background:#e2e8f0;flex:1"></span>yoki<span style="height:1px;background:#e2e8f0;flex:1"></span></div>
+        <button id="googleLogin" type="button" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#1e293b;font-size:15px;font-weight:750">G&nbsp;&nbsp;Google bilan kirish</button>
+      </div>
+    </div>
+    <button id="accountButton" type="button" title="Hisob" style="display:none;position:fixed;left:16px;bottom:18px;z-index:9999;width:48px;height:48px;border:0;border-radius:16px;background:#0f172a;color:#fff;font-size:20px;box-shadow:0 10px 30px #0004">👤</button>
+    <div id="accountModal" style="display:none;position:fixed;inset:0;z-index:15000;align-items:center;justify-content:center;padding:18px;background:#020617aa;font-family:system-ui,sans-serif">
+      <div style="width:min(380px,100%);background:#fff;border-radius:20px;padding:20px">
+        <div style="font-size:18px;font-weight:800;color:#0f172a">Hisob</div>
+        <div id="accountName" style="margin:8px 0 18px;color:#64748b;font-size:13px;word-break:break-all"></div>
+        <button id="logoutButton" style="width:100%;padding:12px;border:0;border-radius:12px;background:#dc2626;color:#fff;font-weight:800">Chiqish</button>
+        <button id="accountClose" style="width:100%;padding:11px;border:0;background:transparent;color:#475569">Yopish</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  let mode = 'login';
+  const chooseMode = next => {
+    mode = next;
+    const login = next === 'login';
+    document.getElementById('authSubmit').textContent = login ? 'Kirish' : 'Ro‘yxatdan o‘tish';
+    document.getElementById('loginTab').style.background = login ? '#fff' : 'transparent';
+    document.getElementById('registerTab').style.background = login ? 'transparent' : '#fff';
+    document.getElementById('loginTab').style.color = login ? '#0f172a' : '#64748b';
+    document.getElementById('registerTab').style.color = login ? '#64748b' : '#0f172a';
+    document.getElementById('authPassword').autocomplete = login ? 'current-password' : 'new-password';
+    setMessage('');
+  };
+
+  document.getElementById('loginTab').onclick = () => chooseMode('login');
+  document.getElementById('registerTab').onclick = () => chooseMode('register');
+  document.getElementById('authForm').onsubmit = async event => {
+    event.preventDefault();
+    const identity = document.getElementById('authIdentity').value;
+    const password = document.getElementById('authPassword').value;
+    const button = document.getElementById('authSubmit');
+    button.disabled = true;
+    setMessage('Kutilmoqda…');
+    try {
+      const email = accountEmail(identity);
+      if (mode === 'register') {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(result.user, { displayName: identity.trim() });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error) {
+      setMessage(friendlyError(error), true);
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  document.getElementById('googleLogin').onclick = async () => {
+    setMessage('Google ochilmoqda…');
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (error) {
+      setMessage(friendlyError(error), true);
+    }
+  };
+  document.getElementById('accountButton').onclick = () => {
+    document.getElementById('accountName').textContent = currentUser?.displayName || currentUser?.email || '';
+    document.getElementById('accountModal').style.display = 'flex';
+  };
+  document.getElementById('accountClose').onclick = () => document.getElementById('accountModal').style.display = 'none';
+  document.getElementById('logoutButton').onclick = async () => {
+    document.getElementById('accountModal').style.display = 'none';
+    await signOut(auth);
+  };
+}
+
+async function loadAndSync(user) {
+  loadingRemote = true;
+  const ref = doc(db, 'userData', user.uid);
+  try {
+    const remote = await getDoc(ref);
+    const local = readLocal();
+    if (remote.exists() && typeof remote.data().snapshot === 'string') {
+      const snapshot = remote.data().snapshot;
+      if (snapshot && snapshot !== local) {
+        frameWindow().localStorage.setItem(STORAGE_KEY, snapshot);
+        lastSnapshot = snapshot;
+        frameWindow().location.reload();
+      } else {
+        lastSnapshot = local;
+      }
+    } else if (local) {
+      await saveSnapshot(local);
+    }
+  } catch (error) {
+    console.error(error);
+    alert(friendlyError(error));
+  } finally {
+    loadingRemote = false;
+  }
+}
+
+async function saveSnapshot(snapshot) {
+  if (!currentUser || loadingRemote || !snapshot || snapshot === lastSnapshot) return;
+  if (new Blob([snapshot]).size > 850000) {
+    console.error('Firebase snapshot 850 KB limitdan oshdi.');
+    return;
+  }
+  await setDoc(doc(db, 'userData', currentUser.uid), {
+    snapshot,
+    version: DATA_VERSION,
+    updatedAt: serverTimestamp()
+  });
+  lastSnapshot = snapshot;
+}
+
+function startMonitor() {
+  clearInterval(monitorTimer);
+  monitorTimer = setInterval(() => {
+    if (!currentUser || loadingRemote) return;
+    const snapshot = readLocal();
+    if (!snapshot || snapshot === lastSnapshot) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveSnapshot(snapshot).catch(error => console.error(friendlyError(error))), 1800);
+  }, 1000);
+}
+
+async function main() {
+  createUi();
+  showApp(false);
+  try {
+    const config = await fetch('/__/firebase/init.json').then(response => {
+      if (!response.ok) throw new Error('Firebase konfiguratsiyasi topilmadi.');
+      return response.json();
+    });
+    const app = initializeApp(config);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    await setPersistence(auth, browserLocalPersistence);
+    onAuthStateChanged(auth, async user => {
+      currentUser = user;
+      if (!user) {
+        clearInterval(monitorTimer);
+        showApp(false);
+        return;
+      }
+      showApp(true);
+      const appFrame = frame();
+      const sync = async () => {
+        await loadAndSync(user);
+        startMonitor();
+      };
+      if (appFrame.contentWindow?.document?.readyState === 'complete') await sync();
+      else appFrame.addEventListener('load', sync, { once: true });
+    });
+  } catch (error) {
+    setMessage(friendlyError(error), true);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', main);
