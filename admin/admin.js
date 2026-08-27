@@ -1,6 +1,6 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
-import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-import {getFirestore,doc,getDoc,collection,onSnapshot,query,orderBy} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import {getAuth,onAuthStateChanged,GoogleAuthProvider,signInWithPopup,signOut,setPersistence,browserLocalPersistence} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
+import {getFirestore,collection,onSnapshot,query,orderBy} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 const $=id=>document.getElementById(id);let auth,db,profiles=[];
 const show=id=>{['loading','login','dashboard'].forEach(name=>$(name).classList.toggle('hidden',name!==id));};
@@ -22,12 +22,12 @@ async function main(){
   const app=initializeApp(config);auth=getAuth(app);db=getFirestore(app);await setPersistence(auth,browserLocalPersistence);
   onAuthStateChanged(auth,async user=>{
     if(!user){show('login');return;}
-    const admin=await getDoc(doc(db,'admins',user.uid));
-    if(!admin.exists()||admin.data().enabled!==true){await signOut(auth);$('loginError').textContent='У этого аккаунта нет прав администратора.';show('login');return;}
+    const isAllowed=user.email?.toLowerCase()==='sales.infarmatik.tj@gmail.com'&&user.providerData.some(item=>item.providerId==='google.com');
+    if(!isAllowed){await signOut(auth);$('loginError').textContent='Доступ разрешён только аккаунту sales.infarmatik.tj@gmail.com.';show('login');return;}
     show('dashboard');
     onSnapshot(query(collection(db,'userProfiles'),orderBy('createdAt','desc')),snap=>{profiles=snap.docs.map(item=>item.data());render();},error=>{$('empty').textContent=error.message;$('empty').classList.remove('hidden');});
   });
-  $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginError').textContent='';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);}catch(error){$('loginError').textContent='Неверный email, пароль или нет доступа.';}};
+  $('googleLogin').onclick=async()=>{$('loginError').textContent='';try{const provider=new GoogleAuthProvider();provider.setCustomParameters({login_hint:'sales.infarmatik.tj@gmail.com',prompt:'select_account'});await signInWithPopup(auth,provider);}catch(error){$('loginError').textContent=error.code==='auth/popup-closed-by-user'?'Окно Google было закрыто.':'Не удалось войти через Google.';}};
   $('logout').onclick=()=>signOut(auth);$('search').oninput=()=>render();
 }
 main().catch(error=>{$('loading').innerHTML=`<div class="error">${escapeHtml(error.message)}</div>`;});

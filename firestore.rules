@@ -8,8 +8,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
+        && request.auth.token.email == 'sales.infarmatik.tj@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
     match /userData/{userId} {
@@ -43,11 +44,6 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'loginEmail', 'updatedAt'])
         && request.resource.data.uid == request.auth.uid;
       allow delete: if false;
-    }
-
-    match /admins/{userId} {
-      allow get: if isOwner(userId);
-      allow list, create, update, delete: if false;
     }
 
     match /{document=**} {

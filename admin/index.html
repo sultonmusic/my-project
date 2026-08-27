@@ -10,15 +10,13 @@
 <body>
   <div id="loading" class="center"><div class="spinner"></div><b>Загрузка…</b></div>
   <main id="login" class="center hidden">
-    <form id="loginForm" class="login-card">
+    <div class="login-card">
       <div class="brand">TZ</div>
       <h1>Панель администратора</h1>
-      <p>Войдите в аккаунт администратора</p>
-      <input id="email" type="email" autocomplete="username" placeholder="Email" required>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Пароль" minlength="6" required>
+      <p>Доступ разрешён только для<br><b>sales.infarmatik.tj@gmail.com</b></p>
       <div id="loginError" class="error"></div>
-      <button type="submit">Войти</button>
-    </form>
+      <button id="googleLogin" type="button">G&nbsp;&nbsp;Войти через Google</button>
+    </div>
   </main>
   <main id="dashboard" class="hidden shell">
     <header><div><small>TYUZARPLATA</small><h1>Статистика</h1></div><button id="logout" class="ghost">Выйти</button></header>
@@ -34,6 +32,6 @@
       <div id="empty" class="empty hidden">Пользователи не найдены</div>
     </section>
   </main>
-  <script type="module" src="./admin.js?v=1"></script>
+  <script type="module" src="./admin.js?v=2"></script>
 </body>
 </html>
