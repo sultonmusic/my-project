@@ -3,7 +3,7 @@ import {
   getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   GoogleAuthProvider, signInWithPopup, updateProfile, signOut,
-  updateEmail, reauthenticateWithCredential, EmailAuthProvider,
+  verifyBeforeUpdateEmail, reauthenticateWithCredential, EmailAuthProvider,
   sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
@@ -234,9 +234,8 @@ function createUi() {
     try {
       const credential = EmailAuthProvider.credential(currentUser.email, password);
       await reauthenticateWithCredential(currentUser, credential);
-      await updateEmail(currentUser, newEmail);
-      await saveUserProfile(currentUser);
-      message.style.color = '#047857'; message.textContent = 'Email сохранён. Теперь восстановление пароля доступно.';
+      await verifyBeforeUpdateEmail(currentUser, newEmail);
+      message.style.color = '#047857'; message.textContent = 'Письмо отправлено. Откройте Gmail и подтвердите новый email, затем войдите снова.';
       document.getElementById('settingsPassword').value = '';
     } catch (error) { message.style.color = '#dc2626'; message.textContent = friendlyError(error); }
   };
