@@ -34,7 +34,9 @@ service cloud.firestore {
     }
 
     match /usernames/{username} {
-      allow get: if request.auth != null;
+      // Exact username lookup is required before Firebase Authentication signs in.
+      // Collection listing remains admin-only; salary data is stored elsewhere.
+      allow get: if true;
       allow list: if isAdmin();
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['uid', 'loginEmail', 'updatedAt'])
