@@ -2,7 +2,8 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "hosting": {
+  "hosting": [{
+    "site": "tyuzarplata",
     "public": ".",
     "ignore": [
       "firebase.json",
@@ -11,5 +12,9 @@
       "**/node_modules/**",
       "Using project tyuzarplata (TyuZarplata)/**"
     ]
-  }
+  }, {
+    "site": "tyuzarplata-admin",
+    "public": "admin",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }]
 }

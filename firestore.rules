@@ -6,8 +6,14 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
+    }
+
     match /userData/{userId} {
-      allow read, delete: if isOwner(userId);
+      allow read, delete: if isOwner(userId) || isAdmin();
 
       allow create, update: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['snapshot', 'version', 'updatedAt'])
@@ -15,6 +21,33 @@ service cloud.firestore {
         && request.resource.data.snapshot.size() <= 850000
         && request.resource.data.version == 1
         && request.resource.data.updatedAt == request.time;
+    }
+
+
+    match /userProfiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'email', 'provider', 'createdAt', 'lastLoginAt'])
+        && request.resource.data.uid == userId;
+      allow delete: if false;
+    }
+
+    match /usernames/{username} {
+      allow get: if request.auth != null;
+      allow list: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'loginEmail', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'loginEmail', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /admins/{userId} {
+      allow get: if isOwner(userId);
+      allow list, create, update, delete: if false;
     }
 
     match /{document=**} {

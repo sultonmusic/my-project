@@ -2,7 +2,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
   getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  GoogleAuthProvider, signInWithPopup, updateProfile, signOut
+  GoogleAuthProvider, signInWithPopup, updateProfile, signOut,
+  updateEmail, reauthenticateWithCredential, EmailAuthProvider,
+  sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot
@@ -46,6 +48,46 @@ function accountEmail(value) {
   return `${clean}@users.tyuzarplata.app`;
 }
 
+function normalizeUsername(value) {
+  const clean = value.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(clean)) {
+    throw new Error('Имя пользователя: 3–30 символов. Допустимы буквы, цифры, точка, _ и -.');
+  }
+  return clean;
+}
+
+async function resolveLoginEmail(identity) {
+  const clean = identity.trim().toLowerCase();
+  if (clean.includes('@')) return clean;
+  const username = normalizeUsername(clean);
+  const lookup = await getDoc(doc(db, 'usernames', username));
+  return lookup.exists() && lookup.data().loginEmail
+    ? lookup.data().loginEmail
+    : accountEmail(username);
+}
+
+async function saveUserProfile(user, username = '') {
+  const provider = user.providerData?.[0]?.providerId || 'password';
+  const cleanUsername = username || user.displayName || (user.email || '').split('@')[0];
+  const profileRef = doc(db, 'userProfiles', user.uid);
+  const existing = await getDoc(profileRef);
+  await setDoc(profileRef, {
+    uid: user.uid,
+    username: cleanUsername,
+    email: user.email?.endsWith('@users.tyuzarplata.app') ? '' : (user.email || ''),
+    provider,
+    createdAt: existing.exists() ? existing.data().createdAt : serverTimestamp(),
+    lastLoginAt: serverTimestamp()
+  });
+  if (cleanUsername && /^[a-z0-9._-]{3,30}$/i.test(cleanUsername)) {
+    await setDoc(doc(db, 'usernames', cleanUsername.toLowerCase()), {
+      uid: user.uid,
+      loginEmail: user.email || accountEmail(cleanUsername),
+      updatedAt: serverTimestamp()
+    });
+  }
+}
+
 function friendlyError(error) {
   const messages = {
     'auth/invalid-credential': 'Неверное имя пользователя, email или пароль.',
@@ -54,6 +96,8 @@ function friendlyError(error) {
     'auth/invalid-email': 'Некорректное имя пользователя или email.',
     'auth/popup-closed-by-user': 'Окно входа через Google было закрыто.',
     'auth/too-many-requests': 'Слишком много попыток. Повторите позже.',
+    'auth/requires-recent-login': 'Для изменения email выйдите и войдите снова.',
+    'auth/email-already-in-use': 'Этот email уже используется другим аккаунтом.',
     'permission-denied': 'Доступ к Firestore запрещён. Опубликуйте Security Rules.'
   };
   return messages[error?.code] || error?.message || 'Произошла неизвестная ошибка.';
@@ -82,10 +126,12 @@ function createUi() {
         <form id="authForm">
           <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Имя пользователя или email</label>
           <input id="authIdentity" autocomplete="username" required placeholder="username" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none">
+          <div id="registerEmailWrap" style="display:none"><label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Email <span style="font-weight:500;color:#94a3b8">(необязательно)</span></label><input id="registerEmail" type="email" autocomplete="email" placeholder="Для восстановления пароля" style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none"></div>
           <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin:14px 0 6px">Пароль</label>
           <div style="position:relative"><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Не менее 6 символов" style="width:100%;padding:13px 52px 13px 13px;border:1px solid #cbd5e1;border-radius:12px;font-size:16px;outline:none"><button id="togglePassword" type="button" aria-label="Показать пароль" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:42px;height:42px;border:0;background:transparent;font-size:20px;cursor:pointer">👁</button></div>
           <div id="authMessage" style="min-height:20px;margin-top:10px;font-size:13px;line-height:1.4"></div>
           <button id="authSubmit" type="submit" style="width:100%;padding:13px;border:0;border-radius:13px;background:#2563eb;color:#fff;font-size:15px;font-weight:800">Вход</button>
+          <button id="forgotPassword" type="button" style="width:100%;padding:11px;border:0;background:transparent;color:#2563eb;font-weight:700">Забыли пароль?</button>
         </form>
         <div style="display:flex;align-items:center;gap:10px;margin:17px 0;color:#94a3b8;font-size:12px"><span style="height:1px;background:#e2e8f0;flex:1"></span>или<span style="height:1px;background:#e2e8f0;flex:1"></span></div>
         <button id="googleLogin" type="button" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#1e293b;font-size:15px;font-weight:750">G&nbsp;&nbsp;Войти через Google</button>
@@ -96,6 +142,7 @@ function createUi() {
       <div style="width:min(380px,100%);background:#fff;border-radius:20px;padding:20px">
         <div style="font-size:18px;font-weight:800;color:#0f172a">Аккаунт</div>
         <div id="accountName" style="margin:8px 0 18px;color:#64748b;font-size:13px;word-break:break-all"></div>
+        <div id="emailSettings" style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px">Email для восстановления</label><input id="settingsEmail" type="email" placeholder="name@example.com" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:12px;font-size:15px"><input id="settingsPassword" type="password" placeholder="Текущий пароль" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:12px;font-size:15px;margin-top:8px"><div id="emailSettingsMessage" style="min-height:18px;margin:7px 0;font-size:12px"></div><button id="saveEmailButton" style="width:100%;padding:11px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-weight:800">Добавить / изменить email</button></div>
         <button id="logoutButton" style="width:100%;padding:12px;border:0;border-radius:12px;background:#dc2626;color:#fff;font-weight:800">Выйти</button>
         <button id="accountClose" style="width:100%;padding:11px;border:0;background:transparent;color:#475569">Закрыть</button>
       </div>
@@ -112,6 +159,8 @@ function createUi() {
     document.getElementById('loginTab').style.color = login ? '#0f172a' : '#64748b';
     document.getElementById('registerTab').style.color = login ? '#64748b' : '#0f172a';
     document.getElementById('authPassword').autocomplete = login ? 'current-password' : 'new-password';
+    document.getElementById('registerEmailWrap').style.display = login ? 'none' : 'block';
+    document.getElementById('forgotPassword').style.display = login ? 'block' : 'none';
     document.getElementById('googleLogin').innerHTML = login
       ? 'G&nbsp;&nbsp;Войти через Google'
       : 'G&nbsp;&nbsp;Зарегистрироваться через Google';
@@ -134,11 +183,17 @@ function createUi() {
     button.disabled = true;
     setMessage('Пожалуйста, подождите…');
     try {
-      const email = accountEmail(identity);
       if (mode === 'register') {
+        const username = normalizeUsername(identity);
+        const optionalEmail = document.getElementById('registerEmail').value.trim().toLowerCase();
+        const usernameRef = doc(db, 'usernames', username);
+        if ((await getDoc(usernameRef)).exists()) throw new Error('Это имя пользователя уже занято.');
+        const email = optionalEmail || accountEmail(username);
         const result = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(result.user, { displayName: identity.trim() });
+        await updateProfile(result.user, { displayName: username });
+        await saveUserProfile(result.user, username);
       } else {
+        const email = await resolveLoginEmail(identity);
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (error) {
@@ -146,6 +201,14 @@ function createUi() {
     } finally {
       button.disabled = false;
     }
+  };
+  document.getElementById('forgotPassword').onclick = async () => {
+    try {
+      const email = await resolveLoginEmail(document.getElementById('authIdentity').value);
+      if (email.endsWith('@users.tyuzarplata.app')) throw new Error('Сначала добавьте настоящий email в настройках аккаунта.');
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Письмо для восстановления пароля отправлено.');
+    } catch (error) { setMessage(friendlyError(error), true); }
   };
 
   document.getElementById('googleLogin').onclick = async () => {
@@ -159,9 +222,25 @@ function createUi() {
   window.openAccountModal = () => {
     document.getElementById('accountName').textContent = currentUser?.displayName || currentUser?.email || '';
     document.getElementById('accountModal').style.display = 'flex';
+    document.getElementById('settingsEmail').value = currentUser?.email?.endsWith('@users.tyuzarplata.app') ? '' : (currentUser?.email || '');
+    document.getElementById('emailSettings').style.display = currentUser?.providerData?.some(item => item.providerId === 'password') ? 'block' : 'none';
   };
   document.getElementById('accountButton').onclick = window.openAccountModal;
   document.getElementById('accountClose').onclick = () => document.getElementById('accountModal').style.display = 'none';
+  document.getElementById('saveEmailButton').onclick = async () => {
+    const message = document.getElementById('emailSettingsMessage');
+    const newEmail = document.getElementById('settingsEmail').value.trim().toLowerCase();
+    const password = document.getElementById('settingsPassword').value;
+    message.style.color = '#475569'; message.textContent = 'Сохраняем…';
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, password);
+      await reauthenticateWithCredential(currentUser, credential);
+      await updateEmail(currentUser, newEmail);
+      await saveUserProfile(currentUser);
+      message.style.color = '#047857'; message.textContent = 'Email сохранён. Теперь восстановление пароля доступно.';
+      document.getElementById('settingsPassword').value = '';
+    } catch (error) { message.style.color = '#dc2626'; message.textContent = friendlyError(error); }
+  };
   document.getElementById('logoutButton').onclick = async () => {
     document.getElementById('accountModal').style.display = 'none';
     await signOut(auth);
@@ -277,6 +356,7 @@ async function main() {
         lastSnapshot = '';
       }
       localStorage.setItem(LAST_UID_KEY, user.uid);
+      saveUserProfile(user).catch(error => console.error(friendlyError(error)));
       const appFrame = frame();
       const sync = async () => {
         showApp(true);

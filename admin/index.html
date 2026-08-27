@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>TyuZarplata Admin</title>
+  <link rel="stylesheet" href="./style.css?v=1">
+</head>
+<body>
+  <div id="loading" class="center"><div class="spinner"></div><b>Загрузка…</b></div>
+  <main id="login" class="center hidden">
+    <form id="loginForm" class="login-card">
+      <div class="brand">TZ</div>
+      <h1>Панель администратора</h1>
+      <p>Войдите в аккаунт администратора</p>
+      <input id="email" type="email" autocomplete="username" placeholder="Email" required>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Пароль" minlength="6" required>
+      <div id="loginError" class="error"></div>
+      <button type="submit">Войти</button>
+    </form>
+  </main>
+  <main id="dashboard" class="hidden shell">
+    <header><div><small>TYUZARPLATA</small><h1>Статистика</h1></div><button id="logout" class="ghost">Выйти</button></header>
+    <section class="stats">
+      <article><span>Всего регистраций</span><strong id="totalUsers">0</strong></article>
+      <article><span>С email</span><strong id="emailUsers">0</strong></article>
+      <article><span>Google</span><strong id="googleUsers">0</strong></article>
+      <article><span>За последние 7 дней</span><strong id="weekUsers">0</strong></article>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h2>Пользователи</h2><p id="updatedAt">—</p></div><input id="search" type="search" placeholder="Поиск по username или email"></div>
+      <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Email</th><th>Способ</th><th>Регистрация</th><th>Последний вход</th></tr></thead><tbody id="users"></tbody></table></div>
+      <div id="empty" class="empty hidden">Пользователи не найдены</div>
+    </section>
+  </main>
+  <script type="module" src="./admin.js?v=1"></script>
+</body>
+</html>
