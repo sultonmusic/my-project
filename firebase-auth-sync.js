@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   GoogleAuthProvider, signInWithPopup, updateProfile, signOut,
   verifyBeforeUpdateEmail, reauthenticateWithCredential, EmailAuthProvider,
-  sendPasswordResetEmail
+  sendPasswordResetEmail, reload
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot
@@ -218,7 +218,17 @@ function createUi() {
       setMessage(friendlyError(error), true);
     }
   };
-  window.openAccountModal = () => {
+  window.openAccountModal = async () => {
+    const message = document.getElementById('emailSettingsMessage');
+    message.textContent = '';
+    try {
+      if (currentUser) {
+        await reload(currentUser);
+        await saveUserProfile(currentUser);
+      }
+    } catch (error) {
+      console.error(friendlyError(error));
+    }
     document.getElementById('accountName').textContent = currentUser?.displayName || currentUser?.email || '';
     document.getElementById('accountModal').style.display = 'flex';
     document.getElementById('settingsEmail').value = currentUser?.email?.endsWith('@users.tyuzarplata.app') ? '' : (currentUser?.email || '');
@@ -354,7 +364,9 @@ async function main() {
         lastSnapshot = '';
       }
       localStorage.setItem(LAST_UID_KEY, user.uid);
-      saveUserProfile(user).catch(error => console.error(friendlyError(error)));
+      reload(user)
+        .then(() => saveUserProfile(user))
+        .catch(error => console.error(friendlyError(error)));
       const appFrame = frame();
       const sync = async () => {
         showApp(true);
