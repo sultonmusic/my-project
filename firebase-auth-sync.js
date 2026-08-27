@@ -91,7 +91,6 @@ async function saveUserProfile(user, username = '') {
 function friendlyError(error) {
   const messages = {
     'auth/invalid-credential': 'Неверное имя пользователя, email или пароль.',
-    'auth/email-already-in-use': 'Это имя пользователя или email уже зарегистрированы.',
     'auth/weak-password': 'Пароль должен содержать не менее 6 символов.',
     'auth/invalid-email': 'Некорректное имя пользователя или email.',
     'auth/popup-closed-by-user': 'Окно входа через Google было закрыто.',
