@@ -50,7 +50,28 @@ service cloud.firestore {
 
     match /kitchen/{documentId} {
       allow read: if true;
-      allow create, update: if request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy', 'shiftName'])
+      allow create, update: if documentId == 'config'
+        && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 300
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /kitchenDays/{dayId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['date', 'items', 'shiftName', 'updatedAt', 'updatedBy', 'editableUntil'])
+        && request.resource.data.date == dayId
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 300
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.editableUntil is timestamp
+        && request.resource.data.editableUntil > request.time
+        && request.resource.data.editableUntil <= request.time + duration.value(26, 'h');
+      allow update: if request.time < resource.data.editableUntil
+        && request.resource.data.keys().hasOnly(['date', 'items', 'shiftName', 'updatedAt', 'updatedBy', 'editableUntil'])
+        && request.resource.data.date == resource.data.date
+        && request.resource.data.editableUntil == resource.data.editableUntil
         && request.resource.data.items is list
         && request.resource.data.items.size() <= 300
         && request.resource.data.updatedAt == request.time;
@@ -59,7 +80,7 @@ service cloud.firestore {
 
     match /kitchenShifts/{shiftId} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasOnly(['items', 'createdAt', 'createdBy', 'shiftName', 'missingCount'])
+      allow create: if request.resource.data.keys().hasOnly(['items', 'createdAt', 'createdBy', 'shiftName', 'missingCount', 'date'])
         && request.resource.data.items is list
         && request.resource.data.items.size() <= 300
         && request.resource.data.createdAt == request.time;
