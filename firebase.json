@@ -16,5 +16,9 @@
     "site": "tyuzarplata-admin",
     "public": "admin",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }, {
+    "site": "tyuzarplata-product",
+    "public": "product",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
   }]
 }
