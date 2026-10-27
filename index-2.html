@@ -631,8 +631,13 @@
                 </button>
             </div>
 
+            <div class="grid grid-cols-2 gap-3">
+                <div><label for="modalStartTime" class="text-xs text-slate-500 dark:text-slate-400 font-medium block mb-2">Во сколько пришли?</label><input type="time" id="modalStartTime" oninput="updateHoursFromTimes()" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-3 text-base font-bold text-slate-900 dark:text-white"></div>
+                <div><label for="modalEndTime" class="text-xs text-slate-500 dark:text-slate-400 font-medium block mb-2">Во сколько ушли?</label><input type="time" id="modalEndTime" oninput="updateHoursFromTimes()" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-3 text-base font-bold text-slate-900 dark:text-white"></div>
+            </div>
+            <div id="modalTimeSummary" class="hidden rounded-xl bg-blue-50 dark:bg-blue-950/40 px-3 py-2 text-center text-sm font-semibold text-blue-700 dark:text-blue-300"></div>
             <div class="text-center space-y-2 py-2">
-                <label class="text-xs text-slate-500 dark:text-slate-400 font-medium block">Сколько часов отработали?</label>
+                <label class="text-xs text-slate-500 dark:text-slate-400 font-medium block">Сколько часов отработали? (если время не указано)</label>
                 <div class="flex items-center justify-center space-x-4">
                     <button onclick="adjustHours(-1)" class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xl active:scale-95 flex items-center justify-center border border-slate-200 dark:border-slate-700">
                         <i class="fa-solid fa-minus"></i>
@@ -997,6 +1002,7 @@
                     <div class="font-extrabold text-sm mb-0.5">
                         ${shift && shift.hours > 0 ? shift.hours : '-'}
                     </div>
+                    ${shift && shift.startTime && shift.endTime ? '<div class="text-[8px] font-semibold leading-none opacity-90">' + shift.startTime + '–' + shift.endTime + '</div>' : ''}
                 `;
 
                 dayCell.innerHTML = innerHTML;
@@ -1041,8 +1047,11 @@
             const formattedDate = `${String(dayNumber).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`;
 
             document.getElementById('modalDateTitle').innerText = formattedDate;
-            document.getElementById('modalHoursInput').value = shift.hours || 12;
+            document.getElementById('modalHoursInput').value = shift.hours ?? 12;
+            document.getElementById('modalStartTime').value = shift.startTime || '';
+            document.getElementById('modalEndTime').value = shift.endTime || '';
             document.getElementById('modalTaxiCheckbox').checked = shift.hasTaxi !== undefined ? shift.hasTaxi : true;
+            updateHoursFromTimes();
             document.getElementById('modalTaxiRateHint').innerText = `+${formatMoney(appData.settings.taxiRate)}`;
 
             document.getElementById('dayModal').classList.remove('hidden');
@@ -1051,6 +1060,28 @@
         function closeDayModal() {
             document.getElementById('dayModal').classList.add('hidden');
             activeSelectedDay = null;
+        }
+
+        function getShiftMinutes(startTime, endTime) {
+            if (!startTime || !endTime) return 0;
+            const toMinutes = value => { const [h, m] = value.split(':').map(Number); return h * 60 + m; };
+            let diff = toMinutes(endTime) - toMinutes(startTime);
+            if (diff < 0) diff += 1440;
+            return diff;
+        }
+
+        function updateHoursFromTimes() {
+            const start = document.getElementById('modalStartTime')?.value || '';
+            const end = document.getElementById('modalEndTime')?.value || '';
+            const summary = document.getElementById('modalTimeSummary');
+            const hoursInput = document.getElementById('modalHoursInput');
+            if (!summary || !hoursInput) return;
+            if (start && end) {
+                const minutes = getShiftMinutes(start, end);
+                hoursInput.value = Math.round(minutes / 60 * 100) / 100;
+                summary.textContent = 'Смена: ' + start + ' — ' + end + ' · ' + Math.floor(minutes / 60) + ' ч ' + (minutes % 60) + ' мин';
+                summary.classList.remove('hidden');
+            } else summary.classList.add('hidden');
         }
 
         function adjustHours(delta) {
@@ -1067,13 +1098,17 @@
         function saveShiftData() {
             if (!activeSelectedDay) return;
 
-            const hrs = parseFloat(document.getElementById('modalHoursInput').value) || 0;
+            const startTime = document.getElementById('modalStartTime').value;
+            const endTime = document.getElementById('modalEndTime').value;
+            const enteredHours = parseFloat(document.getElementById('modalHoursInput').value) || 0;
+            const hrs = startTime && endTime ? Math.round((getShiftMinutes(startTime, endTime) / 60) * 100) / 100 : enteredHours;
             const hasTaxi = document.getElementById('modalTaxiCheckbox').checked;
 
             if (hrs > 0) {
                 appData.shifts[activeSelectedDay] = {
                     hours: hrs,
-                    hasTaxi: hasTaxi
+                    hasTaxi: hasTaxi,
+                    ...(startTime && endTime ? { startTime, endTime } : {})
                 };
             } else {
                 delete appData.shifts[activeSelectedDay];
